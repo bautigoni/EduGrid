@@ -4,11 +4,27 @@ import { useMemo, useState } from "react";
 import { DndContext, DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
-import { days, scheduleEntries, slots } from "@/lib/demo-data";
+import { days, scheduleEntries, timeBlocks } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 type Entry = (typeof scheduleEntries)[number];
+
+const kindLabels: Record<string, string> = {
+  REGULAR: "Regular",
+  PROJECT: "Proyecto",
+  ELECTIVE: "Electiva",
+  OPTATIVE: "Optativa",
+  WORKSHOP: "Taller",
+  CITIZENSHIP: "Ciudadanos",
+  INTERDISCIPLINARY: "Interdisciplinario"
+};
+
+const breakStyles: Record<string, string> = {
+  BREAK: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  MINI_BREAK: "bg-amber-400/10 text-amber-700 dark:text-amber-300",
+  LUNCH: "bg-orange-500/10 text-orange-700 dark:text-orange-300"
+};
 
 function Lesson({ entry }: { entry: Entry }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: entry.id });
@@ -28,13 +44,13 @@ function Lesson({ entry }: { entry: Entry }) {
       <div className="truncate text-sm font-semibold">{entry.subject}</div>
       <div className="truncate text-xs text-muted-foreground">{entry.course} - {entry.teacher}</div>
       <div className="mt-1 truncate text-[11px] text-muted-foreground">{entry.classroom}</div>
-      {entry.kind !== "REGULAR" && <Badge className="mt-2 bg-orange-500/10 text-orange-700">{entry.kind}</Badge>}
+      {entry.kind !== "REGULAR" && <Badge className="mt-2 max-w-full whitespace-normal bg-orange-500/10 text-orange-700">{kindLabels[entry.kind] ?? entry.kind}</Badge>}
     </div>
   );
 }
 
-function Cell({ day, slot, children }: { day: number; slot: number; children?: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `${day}-${slot}` });
+function Cell({ day, blockIndex, children }: { day: number; blockIndex: number; children?: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `${day}-${blockIndex}` });
   return (
     <div
       ref={setNodeRef}
@@ -45,17 +61,17 @@ function Cell({ day, slot, children }: { day: number; slot: number; children?: R
   );
 }
 
-export function ScheduleCalendar() {
-  const [entries, setEntries] = useState(scheduleEntries);
+export function ScheduleCalendar({ initialEntries }: { initialEntries?: Entry[] }) {
+  const [entries, setEntries] = useState(initialEntries ?? scheduleEntries);
   const [message, setMessage] = useState<{ type: "ok" | "bad"; text: string }>({
     type: "ok",
-    text: "Drag a lesson to validate a manual adjustment."
+    text: "Mové una clase para validar el ajuste manual."
   });
 
   const byCell = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const entry of entries) {
-      const key = `${entry.day}-${entry.slot}`;
+      const key = `${entry.day}-${entry.blockIndex}`;
       map.set(key, [...(map.get(key) ?? []), entry]);
     }
     return map;
@@ -68,11 +84,11 @@ export function ScheduleCalendar() {
       return;
     }
 
-    const [day, slot] = over.split("-").map(Number);
+    const [day, blockIndex] = over.split("-").map(Number);
     const response = await fetch("/api/scheduler/validate", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ day, slot, campusId: entries.find((entry) => entry.id === id)?.campusId, entryId: id })
+      body: JSON.stringify({ day, blockIndex, campusId: entries.find((entry) => entry.id === id)?.campusId, entryId: id })
     });
     const validation = await response.json();
 
@@ -81,8 +97,8 @@ export function ScheduleCalendar() {
       return;
     }
 
-    setEntries((current) => current.map((entry) => (entry.id === id ? { ...entry, day, slot } : entry)));
-    setMessage({ type: "ok", text: "Move accepted. No teacher, classroom, or course conflicts detected." });
+    setEntries((current) => current.map((entry) => (entry.id === id ? { ...entry, day, blockIndex } : entry)));
+    setMessage({ type: "ok", text: "Movimiento aceptado. No se detectaron cruces de docente, curso o disponibilidad." });
   }
 
   return (
@@ -98,32 +114,49 @@ export function ScheduleCalendar() {
       </div>
 
       <DndContext modifiers={[restrictToWindowEdges]} onDragEnd={onDragEnd}>
-        <div className="overflow-hidden rounded-2xl border bg-card">
-          <div className="grid grid-cols-[82px_repeat(5,minmax(140px,1fr))] bg-muted/60">
-            <div className="p-3 text-xs font-semibold text-muted-foreground">Time</div>
+        <div className="overflow-x-auto rounded-2xl border bg-card">
+          <div className="grid min-w-[820px] grid-cols-[120px_repeat(5,1fr)] bg-muted/60">
+            <div className="p-3 text-xs font-semibold text-muted-foreground">Bloque</div>
             {days.map((day) => (
               <div key={`calendar-heading-${day}`} className="border-l p-3 text-center text-sm font-semibold">
                 {day}
               </div>
             ))}
           </div>
-          {slots.map((time, slot) => (
-            <div key={time} className="grid grid-cols-[82px_repeat(5,minmax(140px,1fr))]">
-              <div className="border-t bg-muted/30 p-3 text-xs text-muted-foreground">{time}</div>
-              {days.map((_, day) => {
-                const key = `${day}-${slot}`;
-                return (
-                  <Cell key={key} day={day} slot={slot}>
-                    <div className="space-y-1.5">
-                      {(byCell.get(key) ?? []).map((entry) => (
-                        <Lesson key={entry.id} entry={entry} />
-                      ))}
-                    </div>
-                  </Cell>
-                );
-              })}
-            </div>
-          ))}
+          {timeBlocks.map((block, rowIndex) => {
+            if (!block.isAssignable) {
+              return (
+                <div
+                  key={`break-row-${rowIndex}`}
+                  className={cn("grid min-w-[820px] grid-cols-[120px_repeat(5,1fr)] border-t text-xs italic", breakStyles[block.type])}
+                >
+                  <div className="px-3 py-2 font-medium">{block.label}</div>
+                  <div className="col-span-5 border-l px-3 py-2 text-center">{block.breakLabel}</div>
+                </div>
+              );
+            }
+            const blockIndex = block.blockIndex!;
+            return (
+              <div key={`block-row-${blockIndex}`} className="grid min-w-[820px] grid-cols-[120px_repeat(5,1fr)]">
+                <div className="border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <div className="font-medium text-foreground">{block.label}</div>
+                  <div className="text-[10px] uppercase tracking-wide">{block.durationMinutes} min</div>
+                </div>
+                {days.map((_, day) => {
+                  const key = `${day}-${blockIndex}`;
+                  return (
+                    <Cell key={key} day={day} blockIndex={blockIndex}>
+                      <div className="space-y-1.5">
+                        {(byCell.get(key) ?? []).map((entry) => (
+                          <Lesson key={entry.id} entry={entry} />
+                        ))}
+                      </div>
+                    </Cell>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </DndContext>
     </div>

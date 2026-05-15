@@ -1,6 +1,54 @@
-export const days = ["Lun", "Mar", "Mie", "Jue", "Vie"];
+export const days = ["Lun", "Mar", "Mié", "Jue", "Vie"];
 export const daysEn = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-export const slots = ["08:00", "08:45", "09:40", "10:25", "11:20", "12:05", "13:10", "13:55"];
+
+export type TimeBlockType = "CLASS" | "BREAK" | "MINI_BREAK" | "LUNCH";
+
+export type TimeBlock = {
+  blockIndex: number | null;
+  label: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  type: TimeBlockType;
+  isAssignable: boolean;
+  breakLabel?: string;
+};
+
+export const timeBlocks: TimeBlock[] = [
+  { blockIndex: 1, label: "08:15 - 09:15", startTime: "08:15", endTime: "09:15", durationMinutes: 60, type: "CLASS", isAssignable: true },
+  { blockIndex: 2, label: "09:15 - 10:15", startTime: "09:15", endTime: "10:15", durationMinutes: 60, type: "CLASS", isAssignable: true },
+  { blockIndex: null, label: "10:15 - 10:30", startTime: "10:15", endTime: "10:30", durationMinutes: 15, type: "BREAK", isAssignable: false, breakLabel: "Recreo" },
+  { blockIndex: 3, label: "10:30 - 11:35", startTime: "10:30", endTime: "11:35", durationMinutes: 65, type: "CLASS", isAssignable: true },
+  { blockIndex: null, label: "11:35 - 11:40", startTime: "11:35", endTime: "11:40", durationMinutes: 5, type: "MINI_BREAK", isAssignable: false, breakLabel: "Mini break" },
+  { blockIndex: 4, label: "11:40 - 12:40", startTime: "11:40", endTime: "12:40", durationMinutes: 60, type: "CLASS", isAssignable: true },
+  { blockIndex: null, label: "12:40 - 13:25", startTime: "12:40", endTime: "13:25", durationMinutes: 45, type: "LUNCH", isAssignable: false, breakLabel: "Comida y recreo" },
+  { blockIndex: 5, label: "13:25 - 14:15", startTime: "13:25", endTime: "14:15", durationMinutes: 50, type: "CLASS", isAssignable: true },
+  { blockIndex: 6, label: "14:15 - 15:15", startTime: "14:15", endTime: "15:15", durationMinutes: 60, type: "CLASS", isAssignable: true },
+  { blockIndex: null, label: "15:15 - 15:30", startTime: "15:15", endTime: "15:30", durationMinutes: 15, type: "BREAK", isAssignable: false, breakLabel: "Recreo" },
+  { blockIndex: 7, label: "15:30 - 16:30", startTime: "15:30", endTime: "16:30", durationMinutes: 60, type: "CLASS", isAssignable: true }
+];
+
+export const assignableBlocks = timeBlocks.filter((block) => block.isAssignable);
+export const slots = assignableBlocks.map((block) => block.startTime);
+export const blockDurations = assignableBlocks.map((block) => block.durationMinutes);
+export const totalAssignableMinutesPerDay = blockDurations.reduce((sum, value) => sum + value, 0);
+
+export function blockIndexToSlot(blockIndex: number) {
+  return assignableBlocks.findIndex((block) => block.blockIndex === blockIndex);
+}
+
+export function slotToBlockIndex(slot: number) {
+  return assignableBlocks[slot]?.blockIndex ?? null;
+}
+
+export function formatHoursAndMinutes(totalMinutes: number) {
+  if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) return "0 h";
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = Math.round(totalMinutes % 60);
+  if (hours === 0) return `${minutes} min`;
+  if (minutes === 0) return `${hours} h`;
+  return `${hours} h ${minutes.toString().padStart(2, "0")} min`;
+}
 
 export const campuses = [
   {
@@ -57,6 +105,26 @@ export const demoUsers = [
     createdAt: "2026-04-28"
   },
   {
+    id: "user-viewer-nordelta",
+    name: "Carlos Gomez",
+    email: "viewer.nordelta@horaria.demo",
+    role: "VIEWER",
+    status: "ACTIVE",
+    campusIds: ["campus-nordelta"],
+    selectedCampusId: "campus-nordelta",
+    createdAt: "2026-05-01"
+  },
+  {
+    id: "user-multi-campus-admin",
+    name: "Laura Fernandez",
+    email: "coordinacion@horaria.demo",
+    role: "CAMPUS_ADMIN",
+    status: "ACTIVE",
+    campusIds: ["campus-nordelta", "campus-puertos"],
+    selectedCampusId: "campus-nordelta",
+    createdAt: "2026-05-03"
+  },
+  {
     id: "user-pending",
     name: "Pablo Leon",
     email: "pablo@northfield.demo",
@@ -65,6 +133,50 @@ export const demoUsers = [
     campusIds: [],
     selectedCampusId: null,
     createdAt: "2026-05-11"
+  }
+];
+
+// Invitation codes are how the registration flow assigns campus + role.
+// Never expose campus names before validating the code.
+export const invitationCodes = [
+  {
+    id: "code-superadmin",
+    code: "HORARIA-SUPERADMIN-2026",
+    campusId: null,
+    role: "SUPERADMIN",
+    label: "Superadmin (demo)",
+    isActive: true,
+    expiresAt: null as string | null,
+    maxUses: null as number | null,
+    usedCount: 0,
+    requiresApproval: false,
+    createdAt: "2026-01-01"
+  },
+  {
+    id: "code-puertos",
+    code: "PUERTOS-HORARIOS-2026",
+    campusId: "campus-puertos",
+    role: "COORDINADOR_HORARIOS",
+    label: "Coordinación Northfield Puertos",
+    isActive: true,
+    expiresAt: null as string | null,
+    maxUses: null as number | null,
+    usedCount: 1,
+    requiresApproval: false,
+    createdAt: "2026-01-01"
+  },
+  {
+    id: "code-nordelta",
+    code: "NORDELTA-HORARIOS-2026",
+    campusId: "campus-nordelta",
+    role: "COORDINADOR_HORARIOS",
+    label: "Coordinación Northfield Nordelta",
+    isActive: true,
+    expiresAt: null as string | null,
+    maxUses: null as number | null,
+    usedCount: 1,
+    requiresApproval: false,
+    createdAt: "2026-01-01"
   }
 ];
 
@@ -109,6 +221,7 @@ export const subjects = [
   { id: "citizenship", campusId: null, name: "Ciudadanos", code: "CIU", color: "#f97316", roomType: "REGULAR", isGlobal: true }
 ];
 
+// Teacher availability stored as [day(0-4), blockIndex(1-7)] pairs that are NO disponible.
 export const teachers = [
   {
     id: "t-ana",
@@ -116,9 +229,12 @@ export const teachers = [
     fullName: "Ana Perez",
     email: "ana.perez@northfield.demo",
     subjects: ["Matematica", "Fisica"],
-    weeklyMaxModules: 26,
+    contractualHours: 26,
+    allowInstitutionalHours: true,
+    eligibleYears: [1, 2] as number[],
+    eligibleCourseIds: [] as string[],
     preferences: "Prefiere bloques dobles antes del almuerzo.",
-    blocked: [
+    unavailable: [
       [2, 6],
       [2, 7]
     ]
@@ -129,9 +245,12 @@ export const teachers = [
     fullName: "Carlos Gomez",
     email: "carlos.gomez@northfield.demo",
     subjects: ["Lengua", "Ingles"],
-    weeklyMaxModules: 24,
+    contractualHours: 24,
+    allowInstitutionalHours: true,
+    eligibleYears: [] as number[],
+    eligibleCourseIds: [] as string[],
     preferences: "No puede trabajar primera hora los lunes.",
-    blocked: [[0, 0]]
+    unavailable: [[0, 1]]
   },
   {
     id: "t-laura",
@@ -139,9 +258,12 @@ export const teachers = [
     fullName: "Laura Fernandez",
     email: "laura.fernandez@northfield.demo",
     subjects: ["Ciudadanos", "Historia"],
-    weeklyMaxModules: 22,
+    contractualHours: 22,
+    allowInstitutionalHours: true,
+    eligibleYears: [] as number[],
+    eligibleCourseIds: [] as string[],
     preferences: "Coordina proyectos interdisciplinarios.",
-    blocked: [
+    unavailable: [
       [1, 3],
       [3, 4]
     ]
@@ -152,9 +274,12 @@ export const teachers = [
     fullName: "Diego Martinez",
     email: "diego.martinez@northfield.demo",
     subjects: ["Historia", "Arte"],
-    weeklyMaxModules: 20,
+    contractualHours: 20,
+    allowInstitutionalHours: false,
+    eligibleYears: [] as number[],
+    eligibleCourseIds: [] as string[],
     preferences: "Mejor disponibilidad de martes a viernes.",
-    blocked: [
+    unavailable: [
       [0, 5],
       [0, 6],
       [0, 7]
@@ -166,9 +291,12 @@ export const teachers = [
     fullName: "Vanina Gerstner",
     email: "vanina.gerstner@northfield.demo",
     subjects: ["Ciudadanos", "Biologia"],
-    weeklyMaxModules: 21,
+    contractualHours: 21,
+    allowInstitutionalHours: true,
+    eligibleYears: [] as number[],
+    eligibleCourseIds: [] as string[],
     preferences: "Ciudadanos debe coincidir con Laura.",
-    blocked: [
+    unavailable: [
       [1, 3],
       [2, 2],
       [3, 4]
@@ -180,9 +308,12 @@ export const teachers = [
     fullName: "Mariana Lopez",
     email: "mariana.lopez@northfield.demo",
     subjects: ["Tecnologia", "Matematica"],
-    weeklyMaxModules: 25,
+    contractualHours: 25,
+    allowInstitutionalHours: true,
+    eligibleYears: [] as number[],
+    eligibleCourseIds: [] as string[],
     preferences: "Practicas en sala de informatica.",
-    blocked: [[3, 0]]
+    unavailable: [[3, 1]]
   },
   {
     id: "t-pablo",
@@ -190,35 +321,59 @@ export const teachers = [
     fullName: "Pablo Leon",
     email: "pablo.leon@northfield.demo",
     subjects: ["Tecnologia", "Arte"],
-    weeklyMaxModules: 18,
+    contractualHours: 18,
+    allowInstitutionalHours: false,
+    eligibleYears: [] as number[],
+    eligibleCourseIds: [] as string[],
     preferences: "Puede viajar entre sedes con 45 minutos de transicion.",
-    blocked: [
+    unavailable: [
       [4, 6],
       [4, 7]
     ]
   }
 ];
 
+// Each course already has its own default aula, so classroom is implicit.
+// Course availability is stored as [day(0-4), blockIndex(1-7)] pairs that are NO disponible.
 export const courses = [
-  { id: "1a-nor", campusId: "campus-nordelta", label: "1A", year: 1, division: "A", studentCount: 28 },
-  { id: "1b-nor", campusId: "campus-nordelta", label: "1B", year: 1, division: "B", studentCount: 31 },
-  { id: "2a-nor", campusId: "campus-nordelta", label: "2A", year: 2, division: "A", studentCount: 26 },
-  { id: "1a-pue", campusId: "campus-puertos", label: "1A", year: 1, division: "A", studentCount: 27 },
-  { id: "2b-pue", campusId: "campus-puertos", label: "2B", year: 2, division: "B", studentCount: 29 }
+  ...campuses.flatMap((campus) =>
+    [1, 2, 3, 4, 5, 6].flatMap((year) =>
+      ["N", "F", "S"].map((division, index) => ({
+        id: `${year}${division.toLowerCase()}-${campus.id === "campus-nordelta" ? "nor" : "pue"}`,
+        campusId: campus.id,
+        label: `${year}${division}`,
+        year,
+        division,
+        studentCount: 24 + year + index,
+        defaultClassroom: `Aula ${year}${division}`,
+        // Primaria (1-3) no usa los dos últimos bloques
+        unavailable:
+          year <= 3
+            ? [
+                [0, 6], [0, 7],
+                [1, 6], [1, 7],
+                [2, 6], [2, 7],
+                [3, 6], [3, 7],
+                [4, 6], [4, 7]
+              ]
+            : []
+      }))
+    )
+  )
 ];
 
 export const courseSubjects = [
-  { campusId: "campus-nordelta", course: "1A", subject: "Matematica", weeklyModules: 5, distribution: "2 + 2 + 1" },
-  { campusId: "campus-nordelta", course: "1A", subject: "Lengua", weeklyModules: 4, distribution: "2 + 1 + 1" },
-  { campusId: "campus-nordelta", course: "1B", subject: "Matematica", weeklyModules: 5, distribution: "2 + 2 + 1" },
-  { campusId: "campus-nordelta", course: "1B", subject: "Ingles", weeklyModules: 3, distribution: "1 + 1 + 1" },
-  { campusId: "campus-nordelta", course: "2A", subject: "Fisica", weeklyModules: 4, distribution: "2 + 2" },
-  { campusId: "campus-nordelta", course: "2A", subject: "Tecnologia", weeklyModules: 3, distribution: "2 + 1" },
-  { campusId: "campus-puertos", course: "1A", subject: "Biologia", weeklyModules: 3, distribution: "2 + 1" },
-  { campusId: "campus-puertos", course: "1A", subject: "Matematica", weeklyModules: 5, distribution: "2 + 2 + 1" },
-  { campusId: "campus-puertos", course: "2B", subject: "Historia", weeklyModules: 3, distribution: "2 + 1" },
-  { campusId: "campus-puertos", course: "2B", subject: "Arte", weeklyModules: 2, distribution: "2" },
-  { campusId: "campus-puertos", course: "2B", subject: "Tecnologia", weeklyModules: 3, distribution: "2 + 1" }
+  { campusId: "campus-nordelta", course: "1N", subject: "Matematica", weeklyBlocksRequired: 5, distribution: "2 + 2 + 1" },
+  { campusId: "campus-nordelta", course: "1N", subject: "Lengua", weeklyBlocksRequired: 4, distribution: "2 + 1 + 1" },
+  { campusId: "campus-nordelta", course: "1F", subject: "Matematica", weeklyBlocksRequired: 5, distribution: "2 + 2 + 1" },
+  { campusId: "campus-nordelta", course: "1F", subject: "Ingles", weeklyBlocksRequired: 3, distribution: "1 + 1 + 1" },
+  { campusId: "campus-nordelta", course: "2N", subject: "Fisica", weeklyBlocksRequired: 4, distribution: "2 + 2" },
+  { campusId: "campus-nordelta", course: "2N", subject: "Tecnologia", weeklyBlocksRequired: 3, distribution: "2 + 1" },
+  { campusId: "campus-puertos", course: "1N", subject: "Biologia", weeklyBlocksRequired: 3, distribution: "2 + 1" },
+  { campusId: "campus-puertos", course: "1N", subject: "Matematica", weeklyBlocksRequired: 5, distribution: "2 + 2 + 1" },
+  { campusId: "campus-puertos", course: "2F", subject: "Historia", weeklyBlocksRequired: 3, distribution: "2 + 1" },
+  { campusId: "campus-puertos", course: "2F", subject: "Arte", weeklyBlocksRequired: 2, distribution: "2" },
+  { campusId: "campus-puertos", course: "2F", subject: "Tecnologia", weeklyBlocksRequired: 3, distribution: "2 + 1" }
 ];
 
 export const classrooms = [
@@ -239,14 +394,14 @@ export const programBlocks = [
     type: "CITIZENSHIP",
     description: "Proyecto de ciudadania con dos docentes simultaneos.",
     requiredTeachers: ["Laura Fernandez", "Vanina Gerstner"],
-    involvedCourses: ["1A", "1B"],
+    involvedCourses: ["1N", "1F"],
     requiredRoomType: "REGULAR",
     preferredClassroom: "Aula 204",
-    weeklyModules: 2,
+    weeklyBlocksRequired: 2,
     requiresSameTimeTeachers: true,
     requiresSameTimeCourses: true,
     fixedDay: null,
-    fixedTimeSlot: null,
+    fixedBlockIndex: null,
     priority: "CRITICAL",
     notes: "Caso conflictivo: ambas docentes bloquean varios espacios comunes."
   },
@@ -255,16 +410,16 @@ export const programBlocks = [
     campusId: "campus-puertos",
     name: "Electiva de Tecnologia",
     type: "ELECTIVE",
-    description: "Electiva compartida entre 1A y 2B en sala de informatica o maker.",
+    description: "Electiva compartida entre 1N y 2F en sala de informatica o maker.",
     requiredTeachers: ["Mariana Lopez", "Pablo Leon"],
-    involvedCourses: ["1A", "2B"],
+    involvedCourses: ["1N", "2F"],
     requiredRoomType: "MAKER_ROOM",
     preferredClassroom: "Taller Maker",
-    weeklyModules: 2,
+    weeklyBlocksRequired: 2,
     requiresSameTimeTeachers: true,
     requiresSameTimeCourses: true,
     fixedDay: null,
-    fixedTimeSlot: null,
+    fixedBlockIndex: null,
     priority: "HIGH",
     notes: "Requiere coordinar dos cursos y dos docentes."
   },
@@ -275,14 +430,14 @@ export const programBlocks = [
     type: "OPTATIVE",
     description: "Optativa de arte para estudiantes de segundo ano.",
     requiredTeachers: ["Diego Martinez", "Pablo Leon"],
-    involvedCourses: ["2B"],
+    involvedCourses: ["2F"],
     requiredRoomType: "SPECIAL",
     preferredClassroom: "Estudio de Arte",
-    weeklyModules: 2,
+    weeklyBlocksRequired: 2,
     requiresSameTimeTeachers: false,
     requiresSameTimeCourses: false,
     fixedDay: 4,
-    fixedTimeSlot: 4,
+    fixedBlockIndex: 5,
     priority: "MEDIUM",
     notes: "Bloque fijo los viernes."
   },
@@ -293,14 +448,14 @@ export const programBlocks = [
     type: "WORKSHOP",
     description: "Taller de prototipado y tecnologia.",
     requiredTeachers: ["Mariana Lopez"],
-    involvedCourses: ["1A"],
+    involvedCourses: ["1N"],
     requiredRoomType: "MAKER_ROOM",
     preferredClassroom: "Taller Maker",
-    weeklyModules: 2,
+    weeklyBlocksRequired: 2,
     requiresSameTimeTeachers: false,
     requiresSameTimeCourses: false,
     fixedDay: null,
-    fixedTimeSlot: null,
+    fixedBlockIndex: null,
     priority: "HIGH",
     notes: "Preferentemente en bloques consecutivos."
   },
@@ -311,14 +466,14 @@ export const programBlocks = [
     type: "INTERDISCIPLINARY",
     description: "Proyecto entre Matematica y Fisica.",
     requiredTeachers: ["Ana Perez", "Laura Fernandez"],
-    involvedCourses: ["2A"],
+    involvedCourses: ["2N"],
     requiredRoomType: "LABORATORY",
     preferredClassroom: "Laboratorio A",
-    weeklyModules: 2,
+    weeklyBlocksRequired: 2,
     requiresSameTimeTeachers: true,
     requiresSameTimeCourses: false,
     fixedDay: 2,
-    fixedTimeSlot: 1,
+    fixedBlockIndex: 2,
     priority: "HIGH",
     notes: "Bloque fijo para evaluacion integrada."
   }
@@ -330,12 +485,12 @@ export const customConditions = [
     campusId: "campus-nordelta",
     entityType: "TEACHER",
     entityId: "t-ana",
-    conditionType: "MAX_MODULES_PER_DAY",
+    conditionType: "MAX_BLOCKS_PER_DAY",
     operator: "LESS_THAN_OR_EQUAL",
-    value: { modules: 6 },
+    value: { blocks: 6 },
     priority: "HIGH",
     isHardConstraint: true,
-    description: "Ana Perez no puede tener mas de 6 modulos por dia."
+    description: "Ana Perez no puede tener más de 6 bloques horarios por día."
   },
   {
     id: "cond-tech-room",
@@ -363,15 +518,16 @@ export const customConditions = [
   }
 ];
 
+// blockIndex 1..7 matches the institutional time blocks defined in `timeBlocks`.
 export const scheduleEntries = [
-  { id: "s1", campusId: "campus-nordelta", day: 0, slot: 0, course: "1A", subject: "Matematica", teacher: "Ana Perez", classroom: "Aula 101", color: "#FDBA74", kind: "REGULAR" },
-  { id: "s2", campusId: "campus-nordelta", day: 0, slot: 1, course: "1A", subject: "Matematica", teacher: "Ana Perez", classroom: "Aula 101", color: "#FDBA74", kind: "REGULAR" },
-  { id: "s3", campusId: "campus-nordelta", day: 0, slot: 2, course: "1B", subject: "Ingles", teacher: "Carlos Gomez", classroom: "Aula 204", color: "#fb7185", kind: "REGULAR" },
-  { id: "s4", campusId: "campus-nordelta", day: 2, slot: 1, course: "2A", subject: "Proyecto Interdisciplinario", teacher: "Ana Perez + Laura Fernandez", classroom: "Laboratorio A", color: "#86EFAC", kind: "INTERDISCIPLINARY" },
-  { id: "s5", campusId: "campus-puertos", day: 1, slot: 1, course: "1A", subject: "Biologia", teacher: "Mariana Lopez", classroom: "Aula Puertos 101", color: "#A7C957", kind: "REGULAR" },
-  { id: "s6", campusId: "campus-puertos", day: 2, slot: 3, course: "2B", subject: "Historia", teacher: "Diego Martinez", classroom: "Aula Puertos 101", color: "#f59e0b", kind: "REGULAR" },
-  { id: "s7", campusId: "campus-puertos", day: 3, slot: 2, course: "1A + 2B", subject: "Electiva de Tecnologia", teacher: "Mariana Lopez + Pablo Leon", classroom: "Taller Maker", color: "#86EFAC", kind: "ELECTIVE" },
-  { id: "s8", campusId: "campus-puertos", day: 4, slot: 4, course: "2B", subject: "Optativa de Arte", teacher: "Diego Martinez + Pablo Leon", classroom: "Estudio de Arte", color: "#c084fc", kind: "OPTATIVE" }
+  { id: "s1", campusId: "campus-nordelta", day: 0, blockIndex: 1, course: "1N", subject: "Matematica", teacher: "Ana Perez", classroom: "Aula 1N", color: "#FDBA74", kind: "REGULAR" },
+  { id: "s2", campusId: "campus-nordelta", day: 0, blockIndex: 2, course: "1N", subject: "Matematica", teacher: "Ana Perez", classroom: "Aula 1N", color: "#FDBA74", kind: "REGULAR" },
+  { id: "s3", campusId: "campus-nordelta", day: 0, blockIndex: 3, course: "1F", subject: "Ingles", teacher: "Carlos Gomez", classroom: "Aula 1F", color: "#fb7185", kind: "REGULAR" },
+  { id: "s4", campusId: "campus-nordelta", day: 2, blockIndex: 2, course: "2N", subject: "Proyecto Interdisciplinario", teacher: "Ana Perez + Laura Fernandez", classroom: "Laboratorio A", color: "#86EFAC", kind: "INTERDISCIPLINARY" },
+  { id: "s5", campusId: "campus-puertos", day: 1, blockIndex: 2, course: "1N", subject: "Biologia", teacher: "Mariana Lopez", classroom: "Aula 1N", color: "#A7C957", kind: "REGULAR" },
+  { id: "s6", campusId: "campus-puertos", day: 2, blockIndex: 4, course: "2F", subject: "Historia", teacher: "Diego Martinez", classroom: "Aula 2F", color: "#f59e0b", kind: "REGULAR" },
+  { id: "s7", campusId: "campus-puertos", day: 3, blockIndex: 3, course: "1N + 2F", subject: "Electiva de Tecnologia", teacher: "Mariana Lopez + Pablo Leon", classroom: "Taller Maker", color: "#86EFAC", kind: "ELECTIVE" },
+  { id: "s8", campusId: "campus-puertos", day: 4, blockIndex: 5, course: "2F", subject: "Optativa de Arte", teacher: "Diego Martinez + Pablo Leon", classroom: "Estudio de Arte", color: "#c084fc", kind: "OPTATIVE" }
 ];
 
 export const importTemplates = {
@@ -385,7 +541,7 @@ export const importTemplates = {
   ].join("\n"),
   classroomSchedule: [
     "Classroom,Day,Start time,End time,Course,Subject,Teacher,Campus",
-    "Sala de Informatica,Jueves,09:40,10:25,2A,Tecnologia,Mariana Lopez,Northfield Puertos"
+    "Sala de Informatica,Jueves,09:40,10:25,2N,Tecnologia,Mariana Lopez,Northfield Puertos"
   ].join("\n")
 };
 
@@ -416,29 +572,39 @@ export const importBatches = [
 
 export const conflicts = [
   {
-    id: "conf-ciudadanos",
+    id: "conf-no-teacher-math-1n",
     campusId: "campus-nordelta",
     severity: "HIGH",
-    title: "Ciudadanos sin disponibilidad comun",
-    messageEs: "No se pudo asignar Ciudadanos porque los docentes requeridos no tienen una disponibilidad comun suficiente.",
-    messageEn: "Ciudadanos could not be scheduled because the required teachers do not share enough common available time slots.",
-    suggestionsEs: ["Agregar disponibilidad docente.", "Permitir otra ventana horaria.", "Asignar un docente alternativo."],
-    suggestionsEn: ["Add more teacher availability.", "Allow another time window.", "Assign an alternative teacher."]
+    title: "Sin docentes para Matemática en 1N",
+    messageEs: "No hay docentes disponibles para Matemática en 1N.",
+    messageEn: "No teachers available for Mathematics in 1N.",
+    suggestionsEs: ["Habilitá a un docente compatible.", "Asigná Matemática a un docente con años habilitados."],
+    suggestionsEn: ["Enable a compatible teacher.", "Assign Mathematics to a teacher with eligible years."]
   },
   {
-    id: "conf-tech-room",
+    id: "conf-insuficiente-biologia-2f",
     campusId: "campus-puertos",
+    severity: "HIGH",
+    title: "Carga insuficiente para Biología en 2F",
+    messageEs: "La disponibilidad docente no alcanza para cubrir las horas de Biología en 2F.",
+    messageEn: "Teacher availability is not enough to cover Biology hours in 2F.",
+    suggestionsEs: ["Sumá disponibilidad a un docente compatible.", "Reducí las horas semanales de Biología."],
+    suggestionsEn: ["Add availability to a compatible teacher.", "Reduce the weekly hours for Biology."]
+  },
+  {
+    id: "conf-curso-1n-bloques",
+    campusId: "campus-nordelta",
     severity: "MEDIUM",
-    title: "Sala compatible ocupada",
-    messageEs: "La Sala de Informatica ya esta ocupada en ese bloque para Tecnologia.",
-    messageEn: "The computer room is already occupied in that time slot for Technology.",
-    suggestionsEs: ["Usar otra aula compatible.", "Mover la electiva a otro bloque.", "Habilitar el Taller Maker."],
-    suggestionsEn: ["Use another compatible room.", "Move the elective to another block.", "Enable the Maker room."]
+    title: "Curso 1N sin bloques suficientes",
+    messageEs: "El curso 1N no tiene suficientes bloques disponibles.",
+    messageEn: "Course 1N does not have enough available blocks.",
+    suggestionsEs: ["Habilitá más bloques en la disponibilidad del curso.", "Revisá las horas semanales requeridas."],
+    suggestionsEn: ["Enable more blocks in the course availability.", "Review weekly required hours."]
   }
 ];
 
 export const insights = [
-  "Mover Matematica de 2A del martes al jueves elimina una ventana docente.",
+  "Mover Matematica de 2N del martes al jueves elimina una ventana docente.",
   "Ciudadanos necesita una disponibilidad comun adicional entre Laura Fernandez y Vanina Gerstner.",
   "La Electiva de Tecnologia queda mejor en bloque doble en Taller Maker.",
   "La sede Puertos requiere 45 minutos de transicion para docentes compartidos."

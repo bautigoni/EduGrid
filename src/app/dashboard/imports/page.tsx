@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Upload } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -40,11 +40,25 @@ export default function ImportsPage() {
   const [type, setType] = useState(importTypes[0].key);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [status, setStatus] = useState("Esperando archivo CSV.");
+  const [campusId, setCampusId] = useState("");
+  const [allowedCampusIds, setAllowedCampusIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((response) => response.json())
+      .then((data) => {
+        const ids = Array.isArray(data.campuses) ? data.campuses.map((campus: { id: string }) => campus.id) : [];
+        setAllowedCampusIds(ids);
+        setCampusId(data.user?.selectedCampusId && ids.includes(data.user.selectedCampusId) ? data.user.selectedCampusId : ids[0] ?? "");
+      })
+      .catch(() => undefined);
+  }, []);
 
   async function upload(file: File) {
     const form = new FormData();
     form.append("file", file);
     form.append("type", type);
+    form.append("campusId", campusId);
     const response = await fetch("/api/imports/preview", { method: "POST", body: form });
     const data = await response.json();
     setPreview(data);
@@ -152,7 +166,7 @@ export default function ImportsPage() {
               <CardTitle>Historial de importaciones</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {importBatches.map((batch) => (
+              {importBatches.filter((batch) => allowedCampusIds.includes(batch.campusId)).map((batch) => (
                 <div key={batch.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4">
                   <div className="flex items-center gap-3">
                     <FileSpreadsheet className="h-5 w-5 text-orange-600" />

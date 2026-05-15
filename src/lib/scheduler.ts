@@ -1,4 +1,5 @@
 import {
+  assignableBlocks,
   classrooms,
   conflicts,
   courseSubjects,
@@ -7,13 +8,15 @@ import {
   defaultCampusId,
   programBlocks,
   subjects,
-  teachers
+  teachers,
+  timeBlocks
 } from "@/lib/demo-data";
 
 export type OptimizerPayload = {
   days: number;
-  slotsPerDay: number;
   campusId: string;
+  timeBlocks: typeof timeBlocks;
+  assignableBlocks: typeof assignableBlocks;
   teachers: typeof teachers;
   courses: typeof courses;
   subjects: typeof subjects;
@@ -26,8 +29,9 @@ export type OptimizerPayload = {
 export function buildOptimizerPayload(campusId = defaultCampusId): OptimizerPayload {
   return {
     days: 5,
-    slotsPerDay: 8,
     campusId,
+    timeBlocks,
+    assignableBlocks,
     teachers: teachers.filter((teacher) => teacher.campusId === campusId),
     courses: courses.filter((course) => course.campusId === campusId),
     subjects,
@@ -54,28 +58,34 @@ export async function callOptimizer(payload: OptimizerPayload) {
   return response.json();
 }
 
-export function validateMove(day: number, slot: number, campusId = defaultCampusId, entryId?: string) {
-  if (day < 0 || day > 4 || slot < 0 || slot > 7) {
+const validBlockIndices = new Set(assignableBlocks.map((block) => block.blockIndex));
+
+export function validateMove(day: number, blockIndex: number, campusId = defaultCampusId, entryId?: string) {
+  if (day < 0 || day > 4 || !validBlockIndices.has(blockIndex)) {
     return {
       valid: false,
-      conflicts: ["El bloque seleccionado esta fuera de la grilla semanal."],
-      suggestions: ["Elegir un dia entre lunes y viernes.", "Seleccionar un modulo disponible."]
+      conflicts: ["El bloque seleccionado está fuera de la grilla semanal."],
+      suggestions: ["Elegí un día entre lunes y viernes.", "Seleccioná un bloque horario asignable."]
     };
   }
 
-  if (campusId === "campus-nordelta" && day === 2 && slot === 6) {
+  const teacherUnavailable = teachers.find((teacher) =>
+    teacher.campusId === campusId &&
+    teacher.unavailable.some(([d, b]) => d === day && b === blockIndex)
+  );
+  if (teacherUnavailable && entryId) {
     return {
       valid: false,
-      conflicts: ["La docente Ana Perez no puede ser asignada el miercoles a las 13:10 porque figura como no disponible."],
-      suggestions: ["Agregar disponibilidad docente.", "Mover la clase a otro bloque.", "Asignar un docente alternativo."]
+      conflicts: [`${teacherUnavailable.fullName} figura como no disponible en ese bloque.`],
+      suggestions: ["Cambiá la disponibilidad docente.", "Mové la clase a otro bloque.", "Asigná un docente alternativo."]
     };
   }
 
-  if (entryId === "s7" && day === 3 && slot === 2) {
+  if (entryId === "s7" && day === 3 && blockIndex === 3) {
     return {
       valid: false,
-      conflicts: ["La Sala de Informatica ya esta ocupada en ese bloque."],
-      suggestions: ["Usar Taller Maker.", "Mover la electiva a otro bloque.", "Permitir aula compatible alternativa."]
+      conflicts: ["El Taller Maker ya está ocupado en ese bloque."],
+      suggestions: ["Usá otra sala especial compatible.", "Mové la electiva a otro bloque.", "Coordiná con la otra electiva."]
     };
   }
 

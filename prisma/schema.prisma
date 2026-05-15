@@ -70,11 +70,9 @@ enum EntityType {
 
 enum ConditionType {
   CANNOT_WORK_DAY
-  CANNOT_WORK_SLOT
-  PREFERS_DAY
-  PREFERS_SLOT
-  MAX_MODULES_PER_DAY
-  MAX_CONSECUTIVE_MODULES
+  CANNOT_WORK_BLOCK
+  MAX_BLOCKS_PER_DAY
+  MAX_CONSECUTIVE_BLOCKS
   REQUIRES_ROOM_TYPE
   REQUIRES_CONSECUTIVE_BLOCKS
   REQUIRES_SAME_TIME_TEACHERS
@@ -82,6 +80,13 @@ enum ConditionType {
   FIXED_TIME
   CAMPUS_ONLY
   TRANSITION_TIME_REQUIRED
+}
+
+enum TimeBlockType {
+  CLASS
+  BREAK
+  MINI_BREAK
+  LUNCH
 }
 
 enum ConditionOperator {
@@ -138,6 +143,7 @@ model Campus {
   scheduleVersions        ScheduleVersion[]
   customConditions        CustomCondition[]
   programBlocks           ProgramBlock[]
+  timeBlocks              TimeBlock[]
   importBatches           ImportBatch[]
   transitionRulesFrom     CampusTransitionRule[] @relation("TransitionFrom")
   transitionRulesTo       CampusTransitionRule[] @relation("TransitionTo")
@@ -192,20 +198,21 @@ model RegistrationRequest {
 }
 
 model Teacher {
-  id               String                @id @default(cuid())
-  campusId         String
-  fullName         String
-  email            String?
-  weeklyMaxModules Int                   @default(24)
-  preferences      String?
-  campus           Campus                @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  subjects         TeacherSubject[]
-  availabilities   TeacherAvailability[]
-  blockedSlots     BlockedSlot[]
-  schedules        ScheduleEntry[]
-  programBlocks    ProgramBlockTeacher[]
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
+  id                       String                @id @default(cuid())
+  campusId                 String
+  fullName                 String
+  email                    String?
+  contractualHours         Int                   @default(20)
+  allowInstitutionalHours  Boolean               @default(true)
+  preferences              String?
+  campus                   Campus                @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  subjects                 TeacherSubject[]
+  availabilities           TeacherAvailability[]
+  blockedSlots             BlockedSlot[]
+  schedules                ScheduleEntry[]
+  programBlocks            ProgramBlockTeacher[]
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
 
   @@unique([campusId, email])
 }
@@ -238,32 +245,65 @@ model TeacherSubject {
 }
 
 model Course {
-  id           String                @id @default(cuid())
-  campusId     String
-  year         Int
-  division     String
-  label        String
-  studentCount Int                   @default(28)
-  campus       Campus                @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  subjects     CourseSubject[]
-  schedules    ScheduleEntry[]
-  programBlocks ProgramBlockCourse[]
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
+  id               String                @id @default(cuid())
+  campusId         String
+  year             Int
+  division         String
+  label            String
+  studentCount     Int                   @default(28)
+  defaultClassroom String?
+  campus           Campus                @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  subjects         CourseSubject[]
+  availabilities   CourseAvailability[]
+  schedules        ScheduleEntry[]
+  programBlocks    ProgramBlockCourse[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 
   @@unique([campusId, label])
 }
 
+model CourseAvailability {
+  id        String  @id @default(cuid())
+  courseId  String
+  day       Int
+  blockIndex Int
+  available Boolean @default(true)
+  course    Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, day, blockIndex])
+}
+
+model TimeBlock {
+  id              String        @id @default(cuid())
+  campusId        String
+  dayOfWeek       Int
+  blockIndex      Int?
+  startTime       String
+  endTime         String
+  durationMinutes Int
+  label           String
+  isAssignable    Boolean       @default(true)
+  type            TimeBlockType @default(CLASS)
+  campus          Campus        @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([campusId, dayOfWeek])
+  @@unique([campusId, dayOfWeek, startTime])
+}
+
 model CourseSubject {
-  id                    String   @id @default(cuid())
-  campusId              String
-  courseId              String
-  subjectId             String
-  weeklyModules         Int
-  preferredDistribution Json?
-  campus                Campus   @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  course                Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  subject               Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  id                     String   @id @default(cuid())
+  campusId               String
+  courseId               String
+  subjectId              String
+  weeklyBlocksRequired   Int
+  weeklyMinutesRequired  Int?
+  preferredDistribution  Json?
+  campus                 Campus   @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  course                 Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subject                Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, subjectId])
 }
@@ -285,38 +325,38 @@ model Classroom {
 }
 
 model TeacherAvailability {
-  id        String  @id @default(cuid())
-  teacherId String
-  day       Int
-  slot      Int
-  available Boolean @default(true)
-  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  id         String  @id @default(cuid())
+  teacherId  String
+  day        Int
+  blockIndex Int
+  available  Boolean @default(true)
+  teacher    Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
-  @@unique([teacherId, day, slot])
+  @@unique([teacherId, day, blockIndex])
 }
 
 model BlockedSlot {
-  id        String   @id @default(cuid())
-  campusId  String
-  teacherId String?
-  day       Int
-  slot      Int
-  reason    String
-  campus    Campus   @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  campusId   String
+  teacherId  String?
+  day        Int
+  blockIndex Int
+  reason     String
+  campus     Campus   @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  teacher    Teacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 }
 
 model ConstraintProfile {
-  id                         String   @id @default(cuid())
-  campusId                   String
-  name                       String
-  maxDailyModulesPerTeacher  Int      @default(6)
-  maxGapsPerTeacherPerWeek   Int      @default(2)
-  preferConsecutiveModules   Boolean  @default(true)
-  avoidLastHourForCore       Boolean  @default(true)
-  campus                     Campus   @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  id                          String   @id @default(cuid())
+  campusId                    String
+  name                        String
+  maxDailyBlocksPerTeacher    Int      @default(6)
+  maxGapsPerTeacherPerWeek    Int      @default(2)
+  preferConsecutiveBlocks     Boolean  @default(true)
+  avoidLastHourForCore        Boolean  @default(true)
+  campus                      Campus   @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   @@unique([campusId, name])
 }
@@ -342,21 +382,21 @@ model ScheduleEntry {
   courseId       String?
   subjectId      String?
   teacherId      String?
-  classroomId    String
+  classroomId    String?
   programBlockId String?
   day            Int
-  slot           Int
+  blockIndex     Int
   locked         Boolean         @default(false)
   version        ScheduleVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
   course         Course?         @relation(fields: [courseId], references: [id], onDelete: Cascade)
   subject        Subject?        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   teacher        Teacher?        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  classroom      Classroom       @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  classroom      Classroom?      @relation(fields: [classroomId], references: [id], onDelete: Cascade)
   programBlock   ProgramBlock?   @relation(fields: [programBlockId], references: [id], onDelete: Cascade)
 
-  @@unique([versionId, courseId, day, slot])
-  @@unique([versionId, teacherId, day, slot])
-  @@unique([versionId, classroomId, day, slot])
+  @@unique([versionId, courseId, day, blockIndex])
+  @@unique([versionId, teacherId, day, blockIndex])
+  @@unique([versionId, classroomId, day, blockIndex])
 }
 
 model CustomCondition {
@@ -383,11 +423,11 @@ model ProgramBlock {
   description                 String?
   requiredRoomType            ClassroomType?
   preferredClassroomId        String?
-  weeklyModules               Int                       @default(1)
+  weeklyBlocksRequired        Int                       @default(1)
   requiresSameTimeTeachers    Boolean                   @default(true)
   requiresSameTimeCourses     Boolean                   @default(false)
   fixedDay                    Int?
-  fixedTimeSlot               Int?
+  fixedBlockIndex             Int?
   priority                    Priority                  @default(MEDIUM)
   notes                       String?
   campus                      Campus                    @relation(fields: [campusId], references: [id], onDelete: Cascade)

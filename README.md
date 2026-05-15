@@ -1,57 +1,108 @@
 # Horaria
 
-Horaria is a full-stack EdTech SaaS platform for school timetable generation and management. It supports multi-campus schools, account approval, role-based access, imports from existing spreadsheets, custom scheduling conditions, and special blocks such as projects, electives, optatives and workshops.
+Horaria es una plataforma web para generar y gestionar horarios escolares: docentes, cursos, materias, aulas, sedes, restricciones, importaciones y bloques especiales como proyectos, electivas y optativas.
 
-## Run locally
+## Requisitos
 
-```bash
+- Node.js 20 o superior.
+- npm.
+- Docker Desktop si queres levantar PostgreSQL local con `docker compose`.
+
+## Instalacion en Windows PowerShell
+
+```powershell
 npm install
-cp .env.example .env
-npm run dev
+Copy-Item .env.example .env
+npx prisma generate
 ```
 
-Open `http://localhost:3000`.
+## Variables de entorno
 
-Demo credentials:
+El archivo `.env.example` incluye una configuracion local base:
 
-```text
-admin@horaria.demo
-horaria-demo
+```env
+DATABASE_URL="postgresql://horaria:horaria@localhost:5432/horaria?schema=public"
+JWT_SECRET="replace-with-a-long-random-secret"
+OPTIMIZER_URL="http://localhost:8000"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+HORARIA_DEMO_MODE="true"
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+GOOGLE_REDIRECT_URI="http://localhost:3000/api/auth/google/callback"
 ```
 
-## Database
+`HORARIA_DEMO_MODE="true"` permite entrar aunque PostgreSQL no este levantado. Para exigir base real, cambialo a `"false"`.
 
-Horaria uses PostgreSQL and Prisma.
+## Preparar Prisma y la base
 
-```bash
+Con PostgreSQL en Docker:
+
+```powershell
 docker compose up -d postgres
-npx prisma db push
+npx prisma generate
+npx prisma migrate dev
 npm run prisma:seed
 ```
 
-The seed creates two campuses: Northfield Nordelta and Northfield Puertos, plus teachers, courses, classrooms, custom conditions, imports, users, registration requests and special program blocks.
+Tambien podes usar:
 
-## Authentication and roles
+```powershell
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:seed
+```
 
-Email/password auth is implemented with secure password hashes and a signed HTTP-only session cookie. Routes under the internal app are protected by middleware.
+El seed crea sedes Northfield Nordelta y Northfield Puertos, usuarios demo, docentes, cursos, aulas, materias, solicitudes, importaciones, condiciones, conflictos y bloques especiales.
 
-Roles:
+## Correr el proyecto
 
-- `SUPERADMIN`: all campuses, approvals, users, schedules and settings.
-- `CAMPUS_ADMIN`: assigned campuses and local approvals.
-- `SCHEDULER`: timetable creation and manual edits for assigned campuses.
-- `VIEWER`: view and export only.
+```powershell
+npm run dev
+```
 
-User statuses:
+Abrir:
 
-- `PENDING_APPROVAL`
-- `ACTIVE`
-- `REJECTED`
-- `SUSPENDED`
+```text
+http://localhost:3000
+```
+
+## Como entrar
+
+Usuarios demo:
+
+```text
+SUPERADMIN
+Email: admin@horaria.demo
+Password: horaria-demo
+
+CAMPUS_ADMIN Nordelta
+Email: vanina@northfield.demo
+Password: horaria-demo
+
+SCHEDULER Puertos
+Email: mariana@northfield.demo
+Password: horaria-demo
+
+VIEWER Nordelta
+Email: viewer.nordelta@horaria.demo
+Password: horaria-demo
+
+CAMPUS_ADMIN multisede
+Email: coordinacion@horaria.demo
+Password: horaria-demo
+```
+
+Tambien podes tocar `Ver demo` en la home. Ese boton crea una sesion demo y abre `/dashboard`.
+
+Los usuarios que no son `SUPERADMIN` solo ven sus sedes asignadas. Por ejemplo, `vanina@northfield.demo` no ve ni puede consultar datos de Puertos, y `mariana@northfield.demo` no ve ni puede consultar datos de Nordelta.
+
+## Registro
+
+La pantalla `/register` crea una cuenta en estado `PENDING_APPROVAL`. Si la base esta disponible, la solicitud queda guardada en Prisma para revision del superadmin. Si la base no esta disponible y `HORARIA_DEMO_MODE` esta activo, la app devuelve una respuesta demo para no bloquear el flujo.
 
 ## Google login
 
-The Google OAuth entrypoint is prepared at `/api/auth/google`. Configure:
+El boton esta preparado, pero queda deshabilitado visualmente hasta configurar credenciales:
 
 ```env
 GOOGLE_CLIENT_ID=""
@@ -59,91 +110,78 @@ GOOGLE_CLIENT_SECRET=""
 GOOGLE_REDIRECT_URI="http://localhost:3000/api/auth/google/callback"
 ```
 
-If credentials are missing, the app returns to login with a clear setup message.
+## Si aparece el error de Prisma
 
-## Registration approval
+Error:
 
-New users register at `/register`. They submit full name, email, password, institution, requested campus, requested role and an optional message. Accounts are created as pending. Superadmins review them at `/superadmin/requests` and can approve or reject.
-
-## Multi-campus support
-
-Campus is a first-class model. Teachers, courses, classrooms, blocked slots, schedule versions, imports, conditions and special blocks belong to a campus. The top bar includes a campus selector. Superadmins can see all campuses; other roles are intended to be scoped by `UserCampus`.
-
-## Imports
-
-The Import Center lives at `/dashboard/imports`.
-
-Supported now:
-
-- CSV upload
-- preview first rows
-- validation errors
-- template download
-
-Prepared contract:
-
-- XLSX support can be added behind the same preview API.
-
-Templates:
-
-- Disponibilidad horaria
-- Horarios cursos
-- Horarios por aula
-
-## Scheduler
-
-The Next API calls a Python FastAPI microservice using Google OR-Tools CP-SAT.
-
-It handles:
-
-- regular subject requirements
-- teacher availability
-- classroom conflicts
-- course conflicts
-- campus filtering
-- special program blocks
-- multiple required teachers in the same block
-- fixed project day/time
-- custom condition payloads
-
-If the optimizer is unavailable, the app returns a deterministic demo schedule with conflict explanations, so the UI remains usable.
-
-## Projects, electives and optatives
-
-`ProgramBlock` models special blocks such as Ciudadanos, Electiva de Tecnologia, Optativa de Arte, Taller Maker and Proyecto Interdisciplinario. Blocks can require simultaneous teachers, simultaneous courses, specific room types, preferred rooms, fixed slots and priority.
-
-## Languages
-
-Spanish is the default language. Use the language switcher in the top bar to switch to English. The shared shell and new navigation use translation keys; remaining content is mostly Spanish by design for the current demo.
-
-## Exports
-
-The scheduler exposes:
-
-- `/api/export/pdf`
-- `/api/export/excel`
-
-Excel currently returns CSV-compatible content for broad spreadsheet support.
-
-## Docker
-
-```bash
-docker compose up --build
+```text
+@prisma/client did not initialize yet. Please run prisma generate
 ```
 
-This starts PostgreSQL, the optimizer service and the Next.js app.
+Solucion en PowerShell:
 
-## Known limitations
+```powershell
+npx prisma generate
+npm run dev
+```
 
-- Google OAuth callback is scaffolded but not finalized without credentials.
-- XLSX import parsing is represented by the API contract; CSV is fully implemented.
-- Approval actions persist in Prisma when a database is available and use a mock response otherwise.
-- Some old MVP pages still use static demo data, but the schema and APIs are ready for live campus filtering.
+Si sigue fallando:
 
-## Next steps
+```powershell
+Remove-Item -Recurse -Force node_modules
+Remove-Item -Force package-lock.json
+npm install
+npx prisma generate
+npm run dev
+```
 
-- Add full Auth.js Google callback.
-- Persist selected campus in the user profile.
-- Add full CRUD forms for every entity.
-- Add XLSX parser support.
-- Store generated optimizer results as schedule versions.
+El proyecto tambien ejecuta `prisma generate` en `postinstall` y antes de `next build`.
+
+En Windows puede aparecer un `EPERM` al ejecutar `npm run build` si `npm run dev` esta abierto y mantiene bloqueado el archivo `query_engine-windows.dll.node`. Cerrá el servidor dev o liberá el puerto antes de volver a compilar:
+
+```powershell
+$owners = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -ne 0 } | Select-Object -ExpandProperty OwningProcess -Unique
+foreach ($owner in $owners) { Stop-Process -Id $owner -Force }
+npm run build
+```
+
+## Comandos utiles
+
+```powershell
+npm install
+npx prisma generate
+npx prisma migrate dev
+npm run prisma:seed
+npm run dev
+npm run build
+npm run typecheck
+```
+
+## Rutas principales
+
+- `/`: home publica.
+- `/login`: ingreso con email y contrasena.
+- `/register`: registro de cuenta pendiente.
+- `/dashboard`: panel interno.
+- `/teachers`, `/subjects`, `/courses`, `/classrooms`: gestion base.
+- `/dashboard/imports`: centro de importacion CSV.
+- `/projects`: proyectos, electivas y optativas.
+- `/scheduler`: generacion y calendario.
+- `/superadmin`: administracion general.
+- `/superadmin/requests`: aprobacion o rechazo de registros.
+
+## Roles
+
+- `SUPERADMIN`: ve todas las sedes, usuarios, solicitudes y configuracion.
+- `CAMPUS_ADMIN`: administra sedes asignadas.
+- `SCHEDULER`: carga datos, genera horarios y revisa conflictos.
+- `VIEWER`: consulta horarios y exporta.
+
+## Estado actual
+
+- Login con email y contrasena funcional.
+- Modo demo funcional sin base disponible.
+- Registro queda pendiente.
+- Selector ES/EN activo en home, login, register y shell interno.
+- Google OAuth preparado para credenciales reales.
+- CSV import funcionando como MVP; XLSX queda preparado para una etapa posterior.

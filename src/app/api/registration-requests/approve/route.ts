@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { jsonError, requireAuth, requireCampusAccess, requireRole } from "@/lib/access-control";
 
 const schema = z.object({
   requestId: z.string(),
@@ -9,9 +10,12 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const payload = schema.parse(await request.json());
-
+  let payload: z.infer<typeof schema> | null = null;
   try {
+    const user = await requireAuth();
+    requireRole(user, ["SUPERADMIN", "CAMPUS_ADMIN"]);
+    payload = schema.parse(await request.json());
+    requireCampusAccess(user, payload.campusId);
     const requestRecord = await prisma.registrationRequest.findUniqueOrThrow({ where: { id: payload.requestId } });
     await prisma.user.update({
       where: { id: requestRecord.userId },
@@ -33,7 +37,8 @@ export async function POST(request: Request) {
       data: { status: "APPROVED", campusId: payload.campusId, decidedAt: new Date() }
     });
     return NextResponse.json(registration);
-  } catch {
-    return NextResponse.json({ ok: true, source: "mock", ...payload });
+  } catch (error) {
+    if (error instanceof Error && "status" in error) return jsonError(error);
+    return NextResponse.json({ ok: true, source: "mock", ...(payload ?? {}) });
   }
 }

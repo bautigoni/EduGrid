@@ -4,11 +4,17 @@ import { SignJWT, jwtVerify } from "jose";
 const secret = new TextEncoder().encode(process.env.JWT_SECRET ?? "dev-secret-change-me");
 export const sessionCookie = "horaria_session";
 
+export function shouldUseSecureCookies() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const isLocalHttp = appUrl.startsWith("http://localhost") || appUrl.startsWith("http://127.0.0.1");
+  return process.env.NODE_ENV === "production" && !isLocalHttp;
+}
+
 export type SessionUser = {
   id: string;
   email: string;
   name: string;
-  role: "SUPERADMIN" | "CAMPUS_ADMIN" | "SCHEDULER" | "VIEWER";
+  role: "SUPERADMIN" | "CAMPUS_ADMIN" | "SCHEDULER" | "VIEWER" | "COORDINADOR_HORARIOS";
   status: "PENDING_APPROVAL" | "ACTIVE" | "REJECTED" | "SUSPENDED";
   selectedCampusId?: string | null;
   campusIds: string[];

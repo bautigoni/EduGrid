@@ -7,10 +7,16 @@ import { LanguageProvider } from "@/components/ui/language-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Horaria - IA para horarios escolares",
+  title: {
+    default: "Horaria - IA para horarios escolares",
+    template: "%s | Horaria"
+  },
   description: "Plataforma inteligente para generar horarios escolares sin conflictos.",
+  applicationName: "Horaria",
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      { url: "/favicon.png", type: "image/png", sizes: "512x512" }
+    ],
     shortcut: "/favicon.png",
     apple: "/favicon.png"
   }

@@ -31,6 +31,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     function setLocale(nextLocale: Locale) {
       setLocaleState(nextLocale);
       window.localStorage.setItem("horaria_locale", nextLocale);
+      document.cookie = `horaria_locale=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
       document.documentElement.lang = nextLocale;
     }
     return {

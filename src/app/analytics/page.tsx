@@ -3,23 +3,25 @@ import { AppShell } from "@/components/layout/app-shell";
 import { InsightPanel } from "@/components/dashboard/insight-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getScopedDemoContext } from "@/lib/demo-scope";
 
 const rows = [
-  ["Teacher utilization", "82%", "Healthy"],
-  ["Room utilization", "64%", "Room to grow"],
-  ["Average teacher gaps", "1.4", "Improving"],
-  ["Consecutive modules", "71%", "Strong"]
+  ["Uso docente", "82%", "Saludable"],
+  ["Uso de aulas", "64%", "Con margen"],
+  ["Huecos promedio", "1.4", "Mejorando"],
+  ["Módulos consecutivos", "71%", "Fuerte"]
 ];
 
-export default function AnalyticsPage() {
+export default async function AnalyticsPage() {
+  const data = await getScopedDemoContext();
   return (
-    <AppShell title="Analytics" subtitle="Understand schedule quality, utilization, and optimization tradeoffs.">
-      <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_420px] lg:p-8">
-        <Card>
+    <AppShell title="Analítica" subtitle="Entendé calidad, utilización y oportunidades de mejora.">
+      <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:p-8">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-primary" />
-              Optimization quality
+              Calidad de optimización
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -39,12 +41,12 @@ export default function AnalyticsPage() {
             ))}
           </CardContent>
         </Card>
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card className="glass">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                Version trend
+                Tendencia de versiones
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -58,7 +60,7 @@ export default function AnalyticsPage() {
               </div>
             </CardContent>
           </Card>
-          <InsightPanel />
+          <InsightPanel insights={data.insights} />
         </div>
       </div>
     </AppShell>

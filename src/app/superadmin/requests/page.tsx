@@ -26,7 +26,7 @@ export default function RequestsPage() {
       <div className="p-4 sm:p-6 lg:p-8">
         <Card>
           <CardHeader>
-            <CardTitle>Registration Requests</CardTitle>
+            <CardTitle>Solicitudes de registro</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {requests.map((request) => (

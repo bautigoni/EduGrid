@@ -1,21 +1,54 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
-import { createSessionToken, sessionCookie } from "@/lib/auth";
+import { createSessionToken, sessionCookie, shouldUseSecureCookies } from "@/lib/auth";
 import { demoUsers } from "@/lib/demo-data";
+
+const demoModeEnabled = process.env.HORARIA_DEMO_MODE !== "false";
+
+async function createDemoLogin(email: string, password: string) {
+  const demoUser = demoUsers.find((user) => user.email.toLowerCase() === email.toLowerCase());
+  if (!demoModeEnabled || !demoUser || password !== "horaria-demo") {
+    return null;
+  }
+  if (demoUser.status !== "ACTIVE") {
+    return NextResponse.json({ message: `Account status: ${demoUser.status}`, status: demoUser.status }, { status: 403 });
+  }
+  const token = await createSessionToken({
+    id: demoUser.id,
+    email: demoUser.email,
+    name: demoUser.name,
+    role: demoUser.role as "SUPERADMIN" | "CAMPUS_ADMIN" | "SCHEDULER" | "VIEWER",
+    status: demoUser.status as "ACTIVE",
+    selectedCampusId: demoUser.selectedCampusId,
+    campusIds: demoUser.campusIds
+  });
+  const response = NextResponse.json({ user: demoUser, source: "demo" });
+  response.cookies.set(sessionCookie, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: shouldUseSecureCookies(),
+    path: "/",
+    maxAge: 60 * 60 * 8
+  });
+  return response;
+}
 
 export async function POST(request: Request) {
   const { email, password } = await request.json();
+  const normalizedEmail = String(email ?? "").trim();
+  const normalizedPassword = String(password ?? "");
 
   try {
+    const { prisma } = await import("@/lib/prisma");
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
       include: { campuses: true }
     });
-    const valid = user ? await bcrypt.compare(password, user.passwordHash) : false;
+    const valid = user ? await bcrypt.compare(normalizedPassword, user.passwordHash) : false;
 
     if (!user || !valid) {
-      return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
+      const demoLogin = await createDemoLogin(normalizedEmail, normalizedPassword);
+      return demoLogin ?? NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
     }
 
     if (user.status !== "ACTIVE") {
@@ -36,37 +69,14 @@ export async function POST(request: Request) {
     response.cookies.set(sessionCookie, token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: shouldUseSecureCookies(),
       path: "/",
       maxAge: 60 * 60 * 8
     });
 
     return response;
   } catch {
-    const demoUser = demoUsers.find((user) => user.email.toLowerCase() === String(email).toLowerCase());
-    if (!demoUser || password !== "horaria-demo") {
-      return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
-    }
-    if (demoUser.status !== "ACTIVE") {
-      return NextResponse.json({ message: `Account status: ${demoUser.status}`, status: demoUser.status }, { status: 403 });
-    }
-    const token = await createSessionToken({
-      id: demoUser.id,
-      email: demoUser.email,
-      name: demoUser.name,
-      role: demoUser.role as "SUPERADMIN" | "CAMPUS_ADMIN" | "SCHEDULER" | "VIEWER",
-      status: demoUser.status as "ACTIVE",
-      selectedCampusId: demoUser.selectedCampusId,
-      campusIds: demoUser.campusIds
-    });
-    const response = NextResponse.json({ user: demoUser, source: "demo" });
-    response.cookies.set(sessionCookie, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 8
-    });
-    return response;
+    const demoLogin = await createDemoLogin(normalizedEmail, normalizedPassword);
+    return demoLogin ?? NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
   }
 }

@@ -16,6 +16,7 @@ import {
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import {
+  assignableBlocks,
   campuses,
   courseSubjects,
   courses,
@@ -28,6 +29,7 @@ import {
   scheduleEntries,
   subjects,
   teachers,
+  timeBlocks as timeBlockTemplates,
   classrooms
 } from "../src/lib/demo-data";
 
@@ -57,6 +59,8 @@ async function main() {
   await prisma.teacherAvailability.deleteMany();
   await prisma.blockedSlot.deleteMany();
   await prisma.constraintProfile.deleteMany();
+  await prisma.timeBlock.deleteMany();
+  await prisma.courseAvailability.deleteMany();
   await prisma.registrationRequest.deleteMany();
   await prisma.userCampus.deleteMany();
   await prisma.classroom.deleteMany();
@@ -140,7 +144,47 @@ async function main() {
   }
 
   for (const course of courses) {
-    await prisma.course.create({ data: course });
+    await prisma.course.create({
+      data: {
+        id: course.id,
+        campusId: course.campusId,
+        year: course.year,
+        division: course.division,
+        label: course.label,
+        studentCount: course.studentCount,
+        defaultClassroom: course.defaultClassroom,
+        availabilities: {
+          create: Array.from({ length: 5 }).flatMap((_, day) =>
+            assignableBlocks.map((block) => ({
+              day,
+              blockIndex: block.blockIndex!,
+              available: !(course.unavailable ?? []).some(([d, b]) => d === day && b === block.blockIndex)
+            }))
+          )
+        }
+      }
+    });
+  }
+
+  // Seed institutional time blocks (Monday–Friday) per campus.
+  for (const campus of campuses) {
+    for (let day = 0; day < 5; day += 1) {
+      for (const block of timeBlockTemplates) {
+        await prisma.timeBlock.create({
+          data: {
+            campusId: campus.id,
+            dayOfWeek: day,
+            blockIndex: block.blockIndex,
+            startTime: block.startTime,
+            endTime: block.endTime,
+            durationMinutes: block.durationMinutes,
+            label: block.label,
+            isAssignable: block.isAssignable,
+            type: block.type as never
+          }
+        });
+      }
+    }
   }
 
   for (const classroom of classrooms) {
@@ -163,7 +207,8 @@ async function main() {
         campusId: teacher.campusId,
         fullName: teacher.fullName,
         email: teacher.email,
-        weeklyMaxModules: teacher.weeklyMaxModules,
+        contractualHours: teacher.contractualHours,
+        allowInstitutionalHours: teacher.allowInstitutionalHours ?? true,
         preferences: teacher.preferences,
         subjects: {
           create: teacher.subjects.map((subjectName) => ({
@@ -172,19 +217,19 @@ async function main() {
         },
         availabilities: {
           create: Array.from({ length: 5 }).flatMap((_, day) =>
-            Array.from({ length: 8 }).map((__, slot) => ({
+            assignableBlocks.map((block) => ({
               day,
-              slot,
-              available: !teacher.blocked.some(([blockedDay, blockedSlot]) => blockedDay === day && blockedSlot === slot)
+              blockIndex: block.blockIndex!,
+              available: !teacher.unavailable.some(([d, b]) => d === day && b === block.blockIndex)
             }))
           )
         },
         blockedSlots: {
-          create: teacher.blocked.map(([day, slot]) => ({
+          create: teacher.unavailable.map(([day, blockIndex]) => ({
             campusId: teacher.campusId,
             day,
-            slot,
-            reason: "Preferencia docente"
+            blockIndex,
+            reason: "No disponible"
           }))
         }
       }
@@ -199,7 +244,7 @@ async function main() {
         campusId: assignment.campusId,
         courseId: course.id,
         subjectId: subject.id,
-        weeklyModules: assignment.weeklyModules,
+        weeklyBlocksRequired: assignment.weeklyBlocksRequired,
         preferredDistribution: { pattern: assignment.distribution }
       }
     });
@@ -210,9 +255,9 @@ async function main() {
       data: {
         campusId: campus.id,
         name: "Semana academica balanceada",
-        maxDailyModulesPerTeacher: 6,
+        maxDailyBlocksPerTeacher: 6,
         maxGapsPerTeacherPerWeek: 2,
-        preferConsecutiveModules: true,
+        preferConsecutiveBlocks: true,
         avoidLastHourForCore: true
       }
     });
@@ -229,11 +274,11 @@ async function main() {
         description: block.description,
         requiredRoomType: roomTypeMap[block.requiredRoomType],
         preferredClassroomId: classroom?.id,
-        weeklyModules: block.weeklyModules,
+        weeklyBlocksRequired: block.weeklyBlocksRequired,
         requiresSameTimeTeachers: block.requiresSameTimeTeachers,
         requiresSameTimeCourses: block.requiresSameTimeCourses,
         fixedDay: block.fixedDay,
-        fixedTimeSlot: block.fixedTimeSlot,
+        fixedBlockIndex: block.fixedBlockIndex,
         priority: block.priority as Priority,
         notes: block.notes,
         requiredTeachers: {
@@ -306,7 +351,7 @@ async function main() {
   }
 
   for (const entry of scheduleEntries) {
-    const classroom = classrooms.find((room) => room.campusId === entry.campusId && room.name === entry.classroom)!;
+    const classroom = classrooms.find((room) => room.campusId === entry.campusId && room.name === entry.classroom);
     const course = courses.find((item) => item.campusId === entry.campusId && item.label === entry.course);
     const subject = subjects.find((item) => item.name === entry.subject);
     const teacher = teachers.find((item) => entry.teacher.includes(item.fullName));
@@ -318,10 +363,10 @@ async function main() {
         courseId: course?.id,
         subjectId: subject?.id,
         teacherId: teacher?.id,
-        classroomId: classroom.id,
+        classroomId: classroom?.id,
         programBlockId: programBlock?.id,
         day: entry.day,
-        slot: entry.slot
+        blockIndex: entry.blockIndex
       }
     });
   }

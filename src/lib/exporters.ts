@@ -1,11 +1,18 @@
-import { days, scheduleEntries, slots } from "@/lib/demo-data";
+import { assignableBlocks, days, scheduleEntries } from "@/lib/demo-data";
 
-export function buildScheduleCsv() {
+type ExportEntry = typeof scheduleEntries[number];
+
+function blockLabel(blockIndex: number) {
+  const block = assignableBlocks.find((b) => b.blockIndex === blockIndex);
+  return block?.label ?? "";
+}
+
+export function buildScheduleCsv(entries: ExportEntry[] = scheduleEntries) {
   const rows = [
     ["Day", "Time", "Course", "Subject", "Teacher", "Classroom"],
-    ...scheduleEntries.map((entry) => [
+    ...entries.map((entry) => [
       days[entry.day],
-      slots[entry.slot],
+      blockLabel(entry.blockIndex),
       entry.course,
       entry.subject,
       entry.teacher,
@@ -16,11 +23,11 @@ export function buildScheduleCsv() {
   return rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
 }
 
-export function buildSchedulePdf() {
+export function buildSchedulePdf(entries: ExportEntry[] = scheduleEntries) {
   const lines = [
     "Horaria - Trimester 1 Schedule",
-    ...scheduleEntries.map(
-      (entry) => `${days[entry.day]} ${slots[entry.slot]}  ${entry.course}  ${entry.subject}  ${entry.teacher}  ${entry.classroom}`
+    ...entries.map(
+      (entry) => `${days[entry.day]} ${blockLabel(entry.blockIndex)}  ${entry.course}  ${entry.subject}  ${entry.teacher}  ${entry.classroom}`
     )
   ];
 

@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-export function GenerationPanel() {
+export function GenerationPanel({ campusId }: { campusId: string }) {
   const [status, setStatus] = useState<"idle" | "running" | "done" | "failed">("idle");
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<{ score?: number; entries?: unknown[]; note?: string; conflicts?: { message: string; suggestions: string[] }[] } | null>(null);
+  const [result, setResult] = useState<{ entries?: unknown[]; note?: string; conflicts?: { message: string; suggestions: string[] }[] } | null>(null);
 
   async function generate() {
     setStatus("running");
@@ -24,7 +24,7 @@ export function GenerationPanel() {
     const response = await fetch("/api/scheduler/generate", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ campusId: window.localStorage.getItem("horaria_selected_campus") ?? "campus-nordelta" })
+      body: JSON.stringify({ campusId })
     });
     const data = await response.json();
     window.setTimeout(() => {
@@ -38,10 +38,10 @@ export function GenerationPanel() {
     <Card className="glass overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <div>
-          <CardTitle>Constraint engine</CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">CP-SAT optimization with hard and soft constraints.</p>
+          <CardTitle>Motor de restricciones</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">Optimización CP-SAT con restricciones duras y blandas.</p>
         </div>
-        <Badge className="border-primary/30 bg-primary/10 text-primary">OR-Tools ready</Badge>
+        <Badge className="border-primary/30 bg-primary/10 text-primary">OR-Tools listo</Badge>
       </CardHeader>
       <CardContent className="space-y-5">
         <Button size="lg" className="w-full" onClick={generate} disabled={status === "running"}>
@@ -56,28 +56,38 @@ export function GenerationPanel() {
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          {["Teacher overlaps", "Room collisions", "Weekly loads"].map((label) => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            "Docentes cargados",
+            "Disponibilidad docente cargada",
+            "Cursos cargados",
+            "Disponibilidad de cursos cargada",
+            "Materias por curso cargadas",
+            "Docentes compatibles con materias"
+          ].map((label) => (
             <div key={label} className="rounded-2xl border bg-background/60 p-3">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
                 <CheckCircle2 className="h-4 w-4 text-primary" />
                 {label}
               </div>
-              <p className="text-xs text-muted-foreground">Validated during solve.</p>
+              <p className="text-xs text-muted-foreground">Validado durante la generación.</p>
             </div>
           ))}
         </div>
+        <p className="text-xs text-muted-foreground">
+          Las aulas no son requisito: cada curso usa su aula base. Las salas especiales se controlan solo cuando una materia o proyecto lo exige.
+        </p>
 
         {result && (
           <div className="rounded-2xl border bg-background/70 p-4">
             <div className="flex items-center gap-2 font-semibold">
               {status === "done" ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <AlertTriangle className="h-5 w-5 text-rose-500" />}
-              {status === "done" ? `Puntaje generado ${result.score}` : "La generacion fallo"}
+              {status === "done" ? "Horario generado" : "La generacion fallo"}
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
               {status === "done"
-                ? `${result.entries?.length ?? 0} modulos ubicados. ${result.note ?? "Horario guardado como nueva version."}`
-                : "No hay suficientes bloques compatibles. Probá flexibilizar disponibilidad o agregar aulas."}
+                ? `${result.entries?.length ?? 0} bloques horarios ubicados. ${result.note ?? "Horario guardado como nueva versión."}`
+                : "No hay suficientes bloques compatibles. Probá flexibilizar la disponibilidad de docentes o cursos."}
             </p>
             {Boolean(result.conflicts?.length) && (
               <div className="mt-3 space-y-2">

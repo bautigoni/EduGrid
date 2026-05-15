@@ -1,14 +1,13 @@
 import { Lightbulb, WandSparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { insights } from "@/lib/demo-data";
 
-export function InsightPanel() {
+export function InsightPanel({ insights }: { insights: string[] }) {
   return (
     <Card className="glass">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <WandSparkles className="h-5 w-5 text-primary" />
-          Smart insights
+          Sugerencias inteligentes
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
