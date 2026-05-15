@@ -1,0 +1,180 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  COORDINATOR
+  VIEWER
+}
+
+enum ClassroomType {
+  REGULAR
+  LABORATORY
+  COMPUTER_ROOM
+  SPECIAL
+}
+
+enum GenerationStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum Term {
+  TRIMESTER_1
+  TRIMESTER_2
+  TRIMESTER_3
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Teacher {
+  id               String                @id @default(cuid())
+  fullName         String
+  email            String?               @unique
+  weeklyMaxModules Int                   @default(24)
+  preferences      String?
+  subjects         TeacherSubject[]
+  availabilities   TeacherAvailability[]
+  blockedSlots     BlockedSlot[]
+  schedules        ScheduleEntry[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+}
+
+model Subject {
+  id          String              @id @default(cuid())
+  name        String              @unique
+  code        String              @unique
+  color       String              @default("#33d6c8")
+  roomType    ClassroomType       @default(REGULAR)
+  teachers    TeacherSubject[]
+  assignments CourseSubject[]
+  schedules   ScheduleEntry[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model TeacherSubject {
+  teacherId String
+  subjectId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, subjectId])
+}
+
+model Course {
+  id          String          @id @default(cuid())
+  year        Int
+  division    String
+  label       String          @unique
+  studentCount Int            @default(28)
+  subjects    CourseSubject[]
+  schedules   ScheduleEntry[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model CourseSubject {
+  id                    String   @id @default(cuid())
+  courseId              String
+  subjectId             String
+  weeklyModules         Int
+  preferredDistribution Json?
+  course                Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subject               Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, subjectId])
+}
+
+model Classroom {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  type        ClassroomType   @default(REGULAR)
+  capacity    Int
+  restrictions String?
+  schedules   ScheduleEntry[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model TeacherAvailability {
+  id        String  @id @default(cuid())
+  teacherId String
+  day       Int
+  slot      Int
+  available Boolean @default(true)
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, day, slot])
+}
+
+model BlockedSlot {
+  id        String  @id @default(cuid())
+  teacherId String?
+  day       Int
+  slot      Int
+  reason    String
+  teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+}
+
+model ConstraintProfile {
+  id                         String   @id @default(cuid())
+  name                       String   @unique
+  maxDailyModulesPerTeacher  Int      @default(6)
+  maxGapsPerTeacherPerWeek   Int      @default(2)
+  preferConsecutiveModules   Boolean  @default(true)
+  avoidLastHourForCore       Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
+model ScheduleVersion {
+  id           String             @id @default(cuid())
+  name         String
+  term         Term
+  status       GenerationStatus   @default(QUEUED)
+  score        Int?
+  conflicts    Json?
+  insights     Json?
+  entries      ScheduleEntry[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model ScheduleEntry {
+  id          String          @id @default(cuid())
+  versionId   String
+  courseId    String
+  subjectId   String
+  teacherId   String
+  classroomId String
+  day         Int
+  slot        Int
+  locked      Boolean         @default(false)
+  version     ScheduleVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  course      Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subject     Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher     Teacher         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classroom   Classroom       @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, courseId, day, slot])
+  @@unique([versionId, teacherId, day, slot])
+  @@unique([versionId, classroomId, day, slot])
+}
