@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { teachers } from "@/lib/demo-data";
 
 const teacherSchema = z.object({
+  campusId: z.string().default("campus-nordelta"),
   fullName: z.string().min(2),
   email: z.string().email().optional(),
   weeklyMaxModules: z.number().int().min(1).max(40),

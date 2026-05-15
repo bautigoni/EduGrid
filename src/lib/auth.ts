@@ -8,7 +8,10 @@ export type SessionUser = {
   id: string;
   email: string;
   name: string;
-  role: "ADMIN" | "COORDINATOR" | "VIEWER";
+  role: "SUPERADMIN" | "CAMPUS_ADMIN" | "SCHEDULER" | "VIEWER";
+  status: "PENDING_APPROVAL" | "ACTIVE" | "REJECTED" | "SUSPENDED";
+  selectedCampusId?: string | null;
+  campusIds: string[];
 };
 
 export async function createSessionToken(user: SessionUser) {
@@ -33,4 +36,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   } catch {
     return null;
   }
+}
+
+export function canAccessRole(user: SessionUser | null, roles: SessionUser["role"][]) {
+  return Boolean(user && user.status === "ACTIVE" && roles.includes(user.role));
 }

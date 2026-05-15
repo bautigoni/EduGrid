@@ -8,13 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SchedulerPage() {
   return (
-    <AppShell title="Scheduler" subtitle="Generate, inspect, manually adjust, and export timetable versions.">
+    <AppShell title="Generador" subtitle="Generá, revisá, ajustá y exportá versiones de horarios.">
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
           <GenerationPanel />
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Version: Trimester 1</CardTitle>
+              <CardTitle>Versión: Trimestre 1</CardTitle>
               <div className="flex gap-2">
                 <Button asChild variant="secondary" size="sm">
                   <Link href="/api/export/pdf">
@@ -30,14 +30,14 @@ export default function SchedulerPage() {
                 </Button>
                 <Button variant="secondary" size="sm">
                   <Printer className="h-4 w-4" />
-                  Print
+                  Imprimir
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 md:grid-cols-3">
-                {["Teacher schedule", "Course schedule", "Classroom schedule"].map((view) => (
-                  <button key={view} className="rounded-2xl border bg-secondary px-4 py-3 text-sm font-semibold hover:bg-secondary/70">
+                {["Horario docente", "Horario curso", "Horario aula"].map((view) => (
+                  <button key={`scheduler-view-${view}`} className="rounded-2xl border bg-secondary px-4 py-3 text-sm font-semibold hover:bg-secondary/70">
                     {view}
                   </button>
                 ))}

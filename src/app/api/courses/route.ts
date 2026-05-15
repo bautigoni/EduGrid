@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { courses } from "@/lib/demo-data";
 
 const courseSchema = z.object({
+  campusId: z.string().default("campus-nordelta"),
   year: z.number().int().min(1).max(12),
   division: z.string().min(1).max(8),
   label: z.string().min(1),

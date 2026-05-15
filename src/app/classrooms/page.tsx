@@ -7,7 +7,7 @@ import { classrooms } from "@/lib/demo-data";
 
 export default function ClassroomsPage() {
   return (
-    <AppShell title="Classrooms" subtitle="Manage capacity, room type compatibility, and restrictions.">
+    <AppShell title="Aulas" subtitle="Gestioná capacidad, compatibilidad por tipo y restricciones.">
       <div className="p-4 sm:p-6 lg:p-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">

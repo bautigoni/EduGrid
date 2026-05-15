@@ -7,7 +7,7 @@ import { courseSubjects, subjects } from "@/lib/demo-data";
 
 export default function SubjectsPage() {
   return (
-    <AppShell title="Subjects" subtitle="Assign required subjects, weekly loads, and distribution preferences.">
+    <AppShell title="Materias" subtitle="Asigná cargas semanales, distribuciones y requisitos de aula.">
       <div className="p-4 sm:p-6 lg:p-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -25,7 +25,7 @@ export default function SubjectsPage() {
                   <th>Code</th>
                   <th>Room type</th>
                   <th>Assigned weekly modules</th>
-                  <th>Courses</th>
+                  <th>Cursos</th>
                 </tr>
               </thead>
               <tbody>
@@ -47,7 +47,7 @@ export default function SubjectsPage() {
                       <td>
                         <div className="flex flex-wrap gap-2">
                           {assigned.map((item) => (
-                            <Badge key={item.course} className="bg-secondary">
+                            <Badge key={`${subject.id}-${item.campusId}-${item.course}-${item.subject}-${item.weeklyModules}`} className="bg-secondary">
                               {item.course}: {item.distribution}
                             </Badge>
                           ))}

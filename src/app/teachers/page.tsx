@@ -8,7 +8,7 @@ import { teachers } from "@/lib/demo-data";
 
 export default function TeachersPage() {
   return (
-    <AppShell title="Teachers" subtitle="Manage capacity, subjects, availability, restrictions, and preferences.">
+    <AppShell title="Docentes" subtitle="Gestioná carga, materias, disponibilidad, restricciones y preferencias.">
       <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_520px] lg:p-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -33,7 +33,7 @@ export default function TeachersPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {teacher.subjects.map((subject) => (
-                    <Badge key={subject} className="bg-primary/10 text-primary">
+                    <Badge key={`${teacher.id}-${subject}`} className="bg-primary/10 text-primary">
                       {subject}
                     </Badge>
                   ))}

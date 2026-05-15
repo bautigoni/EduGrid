@@ -12,8 +12,8 @@ export function InsightPanel() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {insights.map((insight) => (
-          <div key={insight} className="flex gap-3 rounded-2xl border bg-background/70 p-3">
+        {insights.map((insight, index) => (
+          <div key={`insight-${index}-${insight.slice(0, 24)}`} className="flex gap-3 rounded-2xl border bg-background/70 p-3">
             <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
             <p className="text-sm text-muted-foreground">{insight}</p>
           </div>

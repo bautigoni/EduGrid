@@ -8,11 +8,14 @@ from pydantic import BaseModel
 class SolveRequest(BaseModel):
     days: int
     slotsPerDay: int
+    campusId: str | None = None
     teachers: list[dict[str, Any]]
     courses: list[dict[str, Any]]
     subjects: list[dict[str, Any]]
     classrooms: list[dict[str, Any]]
     requirements: list[dict[str, Any]]
+    programBlocks: list[dict[str, Any]] = []
+    customConditions: list[dict[str, Any]] = []
 
 
 app = FastAPI(title="Horaria Optimizer", version="1.0.0")
@@ -36,6 +39,16 @@ def room_compatible(room: dict[str, Any], subject: dict[str, Any]) -> bool:
     return required == "REGULAR" or room.get("type") == required
 
 
+def compatible_program_room(room: dict[str, Any], block: dict[str, Any]) -> bool:
+    preferred = block.get("preferredClassroom")
+    required = block.get("requiredRoomType")
+    if preferred and room.get("name") == preferred:
+        return True
+    if required:
+        return room.get("type") == required
+    return True
+
+
 @app.post("/solve")
 def solve(payload: SolveRequest) -> dict[str, Any]:
     model = cp_model.CpModel()
@@ -43,6 +56,7 @@ def solve(payload: SolveRequest) -> dict[str, Any]:
     courses_by_label = {course["label"]: course for course in payload.courses}
 
     variables: dict[tuple[int, int, int, int, int], cp_model.IntVar] = {}
+    project_variables: dict[tuple[int, int, int], cp_model.IntVar] = {}
     requirement_keys: list[tuple[int, dict[str, Any]]] = list(enumerate(payload.requirements))
 
     for req_index, req in requirement_keys:
@@ -62,6 +76,29 @@ def solve(payload: SolveRequest) -> dict[str, Any]:
                             continue
                         name = f"x_{req_index}_{teacher_index}_{room_index}_{day}_{slot}"
                         variables[(req_index, teacher_index, room_index, day, slot)] = model.NewBoolVar(name)
+
+    for block_index, block in enumerate(payload.programBlocks):
+        required_teachers = block.get("requiredTeachers", [])
+        if not required_teachers:
+            continue
+        for room_index, room in enumerate(payload.classrooms):
+            if not compatible_program_room(room, block):
+                continue
+            for day in range(payload.days):
+                if block.get("fixedDay") is not None and day != block.get("fixedDay"):
+                    continue
+                for slot in range(payload.slotsPerDay):
+                    if block.get("fixedTimeSlot") is not None and slot != block.get("fixedTimeSlot"):
+                        continue
+                    teacher_pool = [
+                        teacher
+                        for teacher in payload.teachers
+                        if teacher["fullName"] in required_teachers and teacher_available(teacher, day, slot)
+                    ]
+                    if len(teacher_pool) != len(required_teachers):
+                        continue
+                    name = f"pb_{block_index}_{room_index}_{day}_{slot}"
+                    project_variables[(block_index, room_index, day, slot)] = model.NewBoolVar(name)
 
     conflicts: list[str] = []
     for req_index, req in requirement_keys:
@@ -111,6 +148,51 @@ def solve(payload: SolveRequest) -> dict[str, Any]:
                 if terms:
                     model.Add(sum(terms) <= 1)
 
+    for block_index, block in enumerate(payload.programBlocks):
+        eligible = [
+            var
+            for (b, _room, _day, _slot), var in project_variables.items()
+            if b == block_index
+        ]
+        if not eligible:
+            conflicts.append(
+                f"No se pudo asignar {block['name']} porque los docentes requeridos no tienen una disponibilidad comun."
+            )
+            continue
+        model.Add(sum(eligible) == int(block.get("weeklyModules", 1)))
+
+    for teacher_index, teacher in enumerate(payload.teachers):
+        for day in range(payload.days):
+            for slot in range(payload.slotsPerDay):
+                regular_terms = [
+                    var
+                    for (_req, t, _room, d, s), var in variables.items()
+                    if t == teacher_index and d == day and s == slot
+                ]
+                project_terms = [
+                    var
+                    for (block_index, _room, d, s), var in project_variables.items()
+                    if d == day and s == slot and teacher["fullName"] in payload.programBlocks[block_index].get("requiredTeachers", [])
+                ]
+                if regular_terms or project_terms:
+                    model.Add(sum(regular_terms + project_terms) <= 1)
+
+    for room_index, _room in enumerate(payload.classrooms):
+        for day in range(payload.days):
+            for slot in range(payload.slotsPerDay):
+                project_terms = [
+                    var
+                    for (_block, r, d, s), var in project_variables.items()
+                    if r == room_index and d == day and s == slot
+                ]
+                regular_terms = [
+                    var
+                    for (_req, _teacher, r, d, s), var in variables.items()
+                    if r == room_index and d == day and s == slot
+                ]
+                if project_terms or regular_terms:
+                    model.Add(sum(project_terms + regular_terms) <= 1)
+
     soft_terms: list[cp_model.IntVar] = []
     for (req_index, teacher_index, room_index, day, slot), var in variables.items():
         req = payload.requirements[req_index]
@@ -122,6 +204,16 @@ def solve(payload: SolveRequest) -> dict[str, Any]:
             penalty += 3
         if payload.classrooms[room_index]["type"] != subject.get("roomType") and subject.get("roomType") != "REGULAR":
             penalty += 8
+        if penalty:
+            soft_terms.append(var * penalty)
+
+    for (block_index, _room_index, _day, slot), var in project_variables.items():
+        block = payload.programBlocks[block_index]
+        penalty = 0
+        if slot in (0, payload.slotsPerDay - 1):
+            penalty += 2
+        if block.get("type") in {"ELECTIVE", "OPTATIVE"} and slot < 2:
+            penalty += 2
         if penalty:
             soft_terms.append(var * penalty)
 
@@ -166,6 +258,24 @@ def solve(payload: SolveRequest) -> dict[str, Any]:
                 }
             )
 
+    for (block_index, room_index, day, slot), var in project_variables.items():
+        if solver.BooleanValue(var):
+            block = payload.programBlocks[block_index]
+            room = payload.classrooms[room_index]
+            entries.append(
+                {
+                    "id": f"pb-opt-{len(entries)}",
+                    "day": day,
+                    "slot": slot,
+                    "course": " + ".join(block.get("involvedCourses", [])),
+                    "subject": block["name"],
+                    "teacher": " + ".join(block.get("requiredTeachers", [])),
+                    "classroom": room["name"],
+                    "color": "#86EFAC" if block.get("type") in {"ELECTIVE", "WORKSHOP"} else "#FDBA74",
+                    "kind": block.get("type", "PROJECT"),
+                }
+            )
+
     objective = int(solver.ObjectiveValue()) if soft_terms else 0
     score = max(70, 100 - objective)
     return {
@@ -175,6 +285,7 @@ def solve(payload: SolveRequest) -> dict[str, Any]:
         "conflicts": [],
         "insights": [
             "Grouped consecutive modules where room and teacher availability allowed.",
+            "Validated simultaneous teacher requirements for projects, electives and optatives.",
             "Reduced first and last slot usage for core subjects.",
             "Validated teacher, course, and classroom uniqueness for every scheduled slot.",
         ],

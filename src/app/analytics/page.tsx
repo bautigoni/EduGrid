@@ -50,7 +50,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="flex h-56 items-end gap-3">
                 {[68, 74, 81, 88, 94].map((height, index) => (
-                  <div key={height} className="flex flex-1 flex-col items-center gap-2">
+                  <div key={`trend-${index}-${height}`} className="flex flex-1 flex-col items-center gap-2">
                     <div className="w-full rounded-t-xl bg-[linear-gradient(180deg,#27d3bf,#60a5fa)]" style={{ height: `${height}%` }} />
                     <span className="text-xs text-muted-foreground">v{index + 1}</span>
                   </div>

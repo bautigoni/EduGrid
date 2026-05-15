@@ -8,9 +8,23 @@ datasource db {
 }
 
 enum Role {
-  ADMIN
-  COORDINATOR
+  SUPERADMIN
+  CAMPUS_ADMIN
+  SCHEDULER
   VIEWER
+}
+
+enum UserStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  SUSPENDED
+}
+
+enum RequestStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
 }
 
 enum ClassroomType {
@@ -18,6 +32,8 @@ enum ClassroomType {
   LABORATORY
   COMPUTER_ROOM
   SPECIAL
+  WORKSHOP
+  MAKER_ROOM
 }
 
 enum GenerationStatus {
@@ -33,41 +49,183 @@ enum Term {
   TRIMESTER_3
 }
 
+enum ProgramBlockType {
+  REGULAR
+  PROJECT
+  ELECTIVE
+  OPTATIVE
+  WORKSHOP
+  CITIZENSHIP
+  INTERDISCIPLINARY
+}
+
+enum EntityType {
+  TEACHER
+  COURSE
+  SUBJECT
+  CLASSROOM
+  PROGRAM_BLOCK
+  CAMPUS
+}
+
+enum ConditionType {
+  CANNOT_WORK_DAY
+  CANNOT_WORK_SLOT
+  PREFERS_DAY
+  PREFERS_SLOT
+  MAX_MODULES_PER_DAY
+  MAX_CONSECUTIVE_MODULES
+  REQUIRES_ROOM_TYPE
+  REQUIRES_CONSECUTIVE_BLOCKS
+  REQUIRES_SAME_TIME_TEACHERS
+  REQUIRES_SAME_TIME_COURSES
+  FIXED_TIME
+  CAMPUS_ONLY
+  TRANSITION_TIME_REQUIRED
+}
+
+enum ConditionOperator {
+  EQUALS
+  NOT_EQUALS
+  LESS_THAN
+  LESS_THAN_OR_EQUAL
+  GREATER_THAN
+  GREATER_THAN_OR_EQUAL
+  IN
+  NOT_IN
+}
+
+enum ImportType {
+  TEACHER_AVAILABILITY
+  COURSE_SCHEDULE
+  CLASSROOM_SCHEDULE
+}
+
+enum ImportStatus {
+  UPLOADED
+  MAPPED
+  VALIDATED
+  COMPLETED
+  FAILED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Campus {
+  id                      String                 @id @default(cuid())
+  name                    String
+  address                 String
+  city                    String
+  province                String
+  country                 String                 @default("Argentina")
+  code                    String                 @unique
+  isActive                Boolean                @default(true)
+  users                   UserCampus[]
+  selectedByUsers         User[]                 @relation("SelectedCampus")
+  registrationRequests    RegistrationRequest[]
+  teachers                Teacher[]
+  courses                 Course[]
+  classrooms              Classroom[]
+  subjects                Subject[]
+  courseSubjects          CourseSubject[]
+  blockedSlots            BlockedSlot[]
+  constraintProfiles      ConstraintProfile[]
+  scheduleVersions        ScheduleVersion[]
+  customConditions        CustomCondition[]
+  programBlocks           ProgramBlock[]
+  importBatches           ImportBatch[]
+  transitionRulesFrom     CampusTransitionRule[] @relation("TransitionFrom")
+  transitionRulesTo       CampusTransitionRule[] @relation("TransitionTo")
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+}
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  role         Role     @default(ADMIN)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String                @id @default(cuid())
+  email              String                @unique
+  name               String
+  passwordHash       String
+  role               Role                  @default(VIEWER)
+  status             UserStatus            @default(PENDING_APPROVAL)
+  selectedCampusId   String?
+  selectedCampus     Campus?               @relation("SelectedCampus", fields: [selectedCampusId], references: [id])
+  campuses           UserCampus[]
+  registrationRequest RegistrationRequest?
+  importBatches      ImportBatch[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+}
+
+model UserCampus {
+  userId    String
+  campusId  String
+  role      Role      @default(VIEWER)
+  canApproveUsers Boolean @default(false)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campus    Campus    @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@id([userId, campusId])
+}
+
+model RegistrationRequest {
+  id              String        @id @default(cuid())
+  userId          String        @unique
+  campusId        String?
+  fullName        String
+  email           String
+  institutionName String
+  requestedCampus String
+  requestedRole   Role          @default(VIEWER)
+  message         String?
+  status          RequestStatus @default(PENDING_APPROVAL)
+  decidedAt       DateTime?
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campus          Campus?       @relation(fields: [campusId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
 model Teacher {
   id               String                @id @default(cuid())
+  campusId         String
   fullName         String
-  email            String?               @unique
+  email            String?
   weeklyMaxModules Int                   @default(24)
   preferences      String?
+  campus           Campus                @relation(fields: [campusId], references: [id], onDelete: Cascade)
   subjects         TeacherSubject[]
   availabilities   TeacherAvailability[]
   blockedSlots     BlockedSlot[]
   schedules        ScheduleEntry[]
+  programBlocks    ProgramBlockTeacher[]
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
+
+  @@unique([campusId, email])
 }
 
 model Subject {
   id          String              @id @default(cuid())
-  name        String              @unique
-  code        String              @unique
-  color       String              @default("#33d6c8")
+  campusId    String?
+  name        String
+  code        String
+  color       String              @default("#FDBA74")
   roomType    ClassroomType       @default(REGULAR)
+  isGlobal    Boolean             @default(true)
+  campus      Campus?             @relation(fields: [campusId], references: [id], onDelete: Cascade)
   teachers    TeacherSubject[]
   assignments CourseSubject[]
   schedules   ScheduleEntry[]
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+
+  @@unique([campusId, code])
 }
 
 model TeacherSubject {
@@ -80,23 +238,30 @@ model TeacherSubject {
 }
 
 model Course {
-  id          String          @id @default(cuid())
-  year        Int
-  division    String
-  label       String          @unique
-  studentCount Int            @default(28)
-  subjects    CourseSubject[]
-  schedules   ScheduleEntry[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id           String                @id @default(cuid())
+  campusId     String
+  year         Int
+  division     String
+  label        String
+  studentCount Int                   @default(28)
+  campus       Campus                @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  subjects     CourseSubject[]
+  schedules    ScheduleEntry[]
+  programBlocks ProgramBlockCourse[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@unique([campusId, label])
 }
 
 model CourseSubject {
   id                    String   @id @default(cuid())
+  campusId              String
   courseId              String
   subjectId             String
   weeklyModules         Int
   preferredDistribution Json?
+  campus                Campus   @relation(fields: [campusId], references: [id], onDelete: Cascade)
   course                Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   subject               Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
@@ -104,14 +269,19 @@ model CourseSubject {
 }
 
 model Classroom {
-  id          String          @id @default(cuid())
-  name        String          @unique
-  type        ClassroomType   @default(REGULAR)
-  capacity    Int
+  id           String          @id @default(cuid())
+  campusId     String
+  name         String
+  type         ClassroomType   @default(REGULAR)
+  capacity     Int
   restrictions String?
-  schedules   ScheduleEntry[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  campus       Campus          @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  schedules    ScheduleEntry[]
+  programBlocks ProgramBlock[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([campusId, name])
 }
 
 model TeacherAvailability {
@@ -126,55 +296,168 @@ model TeacherAvailability {
 }
 
 model BlockedSlot {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
+  campusId  String
   teacherId String?
   day       Int
   slot      Int
   reason    String
+  campus    Campus   @relation(fields: [campusId], references: [id], onDelete: Cascade)
   teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 }
 
 model ConstraintProfile {
   id                         String   @id @default(cuid())
-  name                       String   @unique
+  campusId                   String
+  name                       String
   maxDailyModulesPerTeacher  Int      @default(6)
   maxGapsPerTeacherPerWeek   Int      @default(2)
   preferConsecutiveModules   Boolean  @default(true)
   avoidLastHourForCore       Boolean  @default(true)
+  campus                     Campus   @relation(fields: [campusId], references: [id], onDelete: Cascade)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
+
+  @@unique([campusId, name])
 }
 
 model ScheduleVersion {
   id           String             @id @default(cuid())
+  campusId     String
   name         String
   term         Term
   status       GenerationStatus   @default(QUEUED)
   score        Int?
   conflicts    Json?
   insights     Json?
+  campus       Campus             @relation(fields: [campusId], references: [id], onDelete: Cascade)
   entries      ScheduleEntry[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 }
 
 model ScheduleEntry {
-  id          String          @id @default(cuid())
-  versionId   String
-  courseId    String
-  subjectId   String
-  teacherId   String
-  classroomId String
-  day         Int
-  slot        Int
-  locked      Boolean         @default(false)
-  version     ScheduleVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  course      Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  subject     Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacher     Teacher         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  classroom   Classroom       @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  id             String          @id @default(cuid())
+  versionId      String
+  courseId       String?
+  subjectId      String?
+  teacherId      String?
+  classroomId    String
+  programBlockId String?
+  day            Int
+  slot           Int
+  locked         Boolean         @default(false)
+  version        ScheduleVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  course         Course?         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subject        Subject?        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher        Teacher?        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classroom      Classroom       @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  programBlock   ProgramBlock?   @relation(fields: [programBlockId], references: [id], onDelete: Cascade)
 
   @@unique([versionId, courseId, day, slot])
   @@unique([versionId, teacherId, day, slot])
   @@unique([versionId, classroomId, day, slot])
+}
+
+model CustomCondition {
+  id               String            @id @default(cuid())
+  campusId         String
+  entityType       EntityType
+  entityId         String
+  conditionType    ConditionType
+  operator         ConditionOperator @default(EQUALS)
+  value            Json
+  priority         Priority          @default(MEDIUM)
+  isHardConstraint Boolean           @default(true)
+  description      String
+  campus           Campus            @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model ProgramBlock {
+  id                          String                    @id @default(cuid())
+  name                        String
+  type                        ProgramBlockType
+  campusId                    String
+  description                 String?
+  requiredRoomType            ClassroomType?
+  preferredClassroomId        String?
+  weeklyModules               Int                       @default(1)
+  requiresSameTimeTeachers    Boolean                   @default(true)
+  requiresSameTimeCourses     Boolean                   @default(false)
+  fixedDay                    Int?
+  fixedTimeSlot               Int?
+  priority                    Priority                  @default(MEDIUM)
+  notes                       String?
+  campus                      Campus                    @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  preferredClassroom          Classroom?                @relation(fields: [preferredClassroomId], references: [id])
+  requiredTeachers            ProgramBlockTeacher[]
+  involvedCourses             ProgramBlockCourse[]
+  schedules                   ScheduleEntry[]
+  createdAt                   DateTime                  @default(now())
+  updatedAt                   DateTime                  @updatedAt
+
+  @@unique([campusId, name])
+}
+
+model ProgramBlockTeacher {
+  programBlockId String
+  teacherId      String
+  programBlock   ProgramBlock @relation(fields: [programBlockId], references: [id], onDelete: Cascade)
+  teacher        Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@id([programBlockId, teacherId])
+}
+
+model ProgramBlockCourse {
+  programBlockId String
+  courseId       String
+  programBlock   ProgramBlock @relation(fields: [programBlockId], references: [id], onDelete: Cascade)
+  course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@id([programBlockId, courseId])
+}
+
+model CampusTransitionRule {
+  id                 String @id @default(cuid())
+  fromCampusId       String
+  toCampusId         String
+  minimumMinutes     Int
+  appliesToTeacherId String?
+  fromCampus         Campus @relation("TransitionFrom", fields: [fromCampusId], references: [id], onDelete: Cascade)
+  toCampus           Campus @relation("TransitionTo", fields: [toCampusId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([fromCampusId, toCampusId, appliesToTeacherId])
+}
+
+model ImportBatch {
+  id              String       @id @default(cuid())
+  campusId        String
+  userId          String?
+  type            ImportType
+  status          ImportStatus @default(UPLOADED)
+  filename        String
+  columnMapping   Json?
+  summary         Json?
+  errorReport     Json?
+  campus          Campus       @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  user            User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  rows            ImportRow[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model ImportRow {
+  id          String      @id @default(cuid())
+  batchId     String
+  rowNumber   Int
+  rawData     Json
+  normalized  Json?
+  isValid     Boolean     @default(false)
+  errors      Json?
+  batch       ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
 }

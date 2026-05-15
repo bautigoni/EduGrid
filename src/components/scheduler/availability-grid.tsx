@@ -23,7 +23,7 @@ export function AvailabilityGrid({
       <div className="grid grid-cols-[70px_repeat(5,minmax(74px,1fr))] bg-muted/60 text-xs font-semibold text-muted-foreground">
         <div className="p-2">Slot</div>
         {days.map((day) => (
-          <div key={day} className="border-l p-2 text-center">
+          <div key={`availability-heading-${day}`} className="border-l p-2 text-center">
             {day}
           </div>
         ))}

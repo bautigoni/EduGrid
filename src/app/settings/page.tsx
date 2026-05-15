@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SettingsPage() {
   return (
-    <AppShell title="Settings" subtitle="Configure school identity, roles, integrations, and optimizer defaults.">
+    <AppShell title="Configuración" subtitle="Configurá identidad institucional, roles, integraciones y optimización.">
       <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-3 lg:p-8">
         {[
           [Shield, "Access control", "Admins can generate schedules. Coordinators can edit constraints. Viewers can export."],

@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { conflicts, customConditions } from "@/lib/demo-data";
 
 const hard = [
   "No teacher overlaps",
@@ -65,10 +66,10 @@ export default function ConstraintsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {[
-              ["Unavailable teacher", "0", "All blocked slots respected."],
-              ["Insufficient slots", "0", "Current weekly load fits available grid."],
-              ["Room conflicts", "0", "Typed classroom compatibility is valid."],
-              ["Impossible constraints", "0", "No contradictory requirements found."]
+              ["Disponibilidad docente", "1", "Ciudadanos no tiene disponibilidad comun suficiente."],
+              ["Aulas compatibles", "1", "Sala de Informatica ocupada para Tecnologia."],
+              ["Traslados multisede", "0", "Reglas de transicion respetadas."],
+              ["Carga semanal", "0", "La carga requerida entra en la grilla."]
             ].map(([label, count, text]) => (
               <div key={label} className="rounded-2xl border bg-background/60 p-3">
                 <div className="flex items-center justify-between">
@@ -80,8 +81,25 @@ export default function ConstraintsPage() {
             ))}
             <div className="rounded-2xl bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
               <AlertTriangle className="mb-2 h-4 w-4" />
-              Add one more laboratory before expanding 2A science modules.
+              {conflicts[0].messageEs} Sugerencia: {conflicts[0].suggestionsEs[0]}
             </div>
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Condiciones personalizadas</CardTitle>
+            <p className="text-sm text-muted-foreground">Reglas de carga, preferencias y restricciones por entidad.</p>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-3">
+            {customConditions.map((condition) => (
+              <div key={condition.id} className="rounded-2xl border p-4">
+                <Badge className={condition.isHardConstraint ? "bg-orange-500/10 text-orange-700" : "bg-green-500/10 text-green-700"}>
+                  {condition.isHardConstraint ? "Hard" : "Soft"} - {condition.priority}
+                </Badge>
+                <h3 className="mt-3 font-semibold">{condition.conditionType}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{condition.description}</p>
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>

@@ -7,7 +7,7 @@ import { courseSubjects, courses } from "@/lib/demo-data";
 
 export default function CoursesPage() {
   return (
-    <AppShell title="Courses" subtitle="Create school years, divisions, and weekly academic requirements.">
+    <AppShell title="Cursos" subtitle="Creá años, divisiones y requisitos semanales por materia.">
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <div className="flex justify-end">
           <Button>
@@ -28,7 +28,7 @@ export default function CoursesPage() {
                   {courseSubjects
                     .filter((item) => item.course === course.label)
                     .map((item) => (
-                      <div key={item.subject} className="flex items-center justify-between rounded-xl bg-secondary px-3 py-2 text-sm">
+                      <div key={`${course.id}-${item.campusId}-${item.course}-${item.subject}-${item.weeklyModules}`} className="flex items-center justify-between rounded-xl bg-secondary px-3 py-2 text-sm">
                         <span>{item.subject}</span>
                         <span className="font-semibold">{item.weeklyModules} modules</span>
                       </div>

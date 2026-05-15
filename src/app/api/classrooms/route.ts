@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { classrooms } from "@/lib/demo-data";
 
 const classroomSchema = z.object({
+  campusId: z.string().default("campus-nordelta"),
   name: z.string().min(1),
   type: z.enum(["REGULAR", "LABORATORY", "COMPUTER_ROOM", "SPECIAL"]),
   capacity: z.number().int().min(1).max(200),

@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    --background: 33 100% 96%;
+    --foreground: 220 39% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 174 72% 42%;
-    --primary-foreground: 180 100% 98%;
-    --secondary: 220 14% 96%;
+    --primary: 29 91% 66%;
+    --primary-foreground: 24 70% 10%;
+    --secondary: 138 76% 94%;
     --secondary-foreground: 222 47% 11%;
     --muted: 220 14% 94%;
     --muted-foreground: 215 16% 47%;
-    --accent: 216 100% 97%;
+    --accent: 138 76% 94%;
     --accent-foreground: 222 47% 11%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 174 72% 42%;
+    --ring: 29 91% 66%;
     --radius: 1rem;
   }
 
@@ -33,8 +33,8 @@
     --card-foreground: 210 40% 98%;
     --popover: 222 42% 10%;
     --popover-foreground: 210 40% 98%;
-    --primary: 174 72% 48%;
-    --primary-foreground: 180 100% 8%;
+    --primary: 29 91% 66%;
+    --primary-foreground: 24 70% 10%;
     --secondary: 217 33% 16%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217 33% 16%;
@@ -45,7 +45,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217 33% 18%;
     --input: 217 33% 18%;
-    --ring: 174 72% 48%;
+    --ring: 29 91% 66%;
   }
 
   * {

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 export function GenerationPanel() {
   const [status, setStatus] = useState<"idle" | "running" | "done" | "failed">("idle");
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<{ score?: number; entries?: unknown[]; note?: string } | null>(null);
+  const [result, setResult] = useState<{ score?: number; entries?: unknown[]; note?: string; conflicts?: { message: string; suggestions: string[] }[] } | null>(null);
 
   async function generate() {
     setStatus("running");
@@ -21,7 +21,11 @@ export function GenerationPanel() {
       window.setTimeout(() => setProgress(value), 450 * (index + 1));
     });
 
-    const response = await fetch("/api/scheduler/generate", { method: "POST" });
+    const response = await fetch("/api/scheduler/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ campusId: window.localStorage.getItem("horaria_selected_campus") ?? "campus-nordelta" })
+    });
     const data = await response.json();
     window.setTimeout(() => {
       setProgress(100);
@@ -42,7 +46,7 @@ export function GenerationPanel() {
       <CardContent className="space-y-5">
         <Button size="lg" className="w-full" onClick={generate} disabled={status === "running"}>
           {status === "running" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-          Generate Schedule
+          Generar horario
         </Button>
 
         <div className="h-3 overflow-hidden rounded-full bg-secondary">
@@ -68,13 +72,23 @@ export function GenerationPanel() {
           <div className="rounded-2xl border bg-background/70 p-4">
             <div className="flex items-center gap-2 font-semibold">
               {status === "done" ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <AlertTriangle className="h-5 w-5 text-rose-500" />}
-              {status === "done" ? `Generated score ${result.score}` : "Generation failed"}
+              {status === "done" ? `Puntaje generado ${result.score}` : "La generacion fallo"}
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
               {status === "done"
-                ? `${result.entries?.length ?? 0} modules placed. ${result.note ?? "Schedule saved as a new version."}`
-                : "Insufficient compatible slots. Try relaxing availability or adding classrooms."}
+                ? `${result.entries?.length ?? 0} modulos ubicados. ${result.note ?? "Horario guardado como nueva version."}`
+                : "No hay suficientes bloques compatibles. Probá flexibilizar disponibilidad o agregar aulas."}
             </p>
+            {Boolean(result.conflicts?.length) && (
+              <div className="mt-3 space-y-2">
+                {result.conflicts?.map((conflict, index) => (
+                  <div key={`generation-conflict-${index}-${conflict.message}`} className="rounded-xl bg-orange-500/10 p-3 text-sm text-orange-800 dark:text-orange-200">
+                    <p className="font-semibold">{conflict.message}</p>
+                    <p className="mt-1 text-xs">{conflict.suggestions.join(" ")}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

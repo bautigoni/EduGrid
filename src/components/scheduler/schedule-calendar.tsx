@@ -6,6 +6,7 @@ import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { days, scheduleEntries, slots } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 type Entry = (typeof scheduleEntries)[number];
 
@@ -27,6 +28,7 @@ function Lesson({ entry }: { entry: Entry }) {
       <div className="truncate text-sm font-semibold">{entry.subject}</div>
       <div className="truncate text-xs text-muted-foreground">{entry.course} - {entry.teacher}</div>
       <div className="mt-1 truncate text-[11px] text-muted-foreground">{entry.classroom}</div>
+      {entry.kind !== "REGULAR" && <Badge className="mt-2 bg-orange-500/10 text-orange-700">{entry.kind}</Badge>}
     </div>
   );
 }
@@ -70,7 +72,7 @@ export function ScheduleCalendar() {
     const response = await fetch("/api/scheduler/validate", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ day, slot })
+      body: JSON.stringify({ day, slot, campusId: entries.find((entry) => entry.id === id)?.campusId, entryId: id })
     });
     const validation = await response.json();
 
@@ -100,7 +102,7 @@ export function ScheduleCalendar() {
           <div className="grid grid-cols-[82px_repeat(5,minmax(140px,1fr))] bg-muted/60">
             <div className="p-3 text-xs font-semibold text-muted-foreground">Time</div>
             {days.map((day) => (
-              <div key={day} className="border-l p-3 text-center text-sm font-semibold">
+              <div key={`calendar-heading-${day}`} className="border-l p-3 text-center text-sm font-semibold">
                 {day}
               </div>
             ))}
