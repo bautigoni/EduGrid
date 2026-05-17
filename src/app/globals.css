@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 33 100% 96%;
-    --foreground: 220 39% 11%;
+    --background: 33 100% 97%;
+    --foreground: 221 39% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 29 91% 66%;
-    --primary-foreground: 24 70% 10%;
-    --secondary: 138 76% 94%;
+    --primary: 29 97% 73%;
+    --primary-foreground: 24 82% 13%;
+    --secondary: 151 76% 90%;
     --secondary-foreground: 222 47% 11%;
-    --muted: 220 14% 94%;
+    --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 138 76% 94%;
+    --accent: 151 76% 90%;
     --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
+    --destructive: 346 77% 49%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 29 91% 66%;
-    --radius: 1rem;
+    --border: 162 20% 88%;
+    --input: 162 20% 88%;
+    --ring: 160 84% 39%;
+    --radius: 0.85rem;
   }
 
   .dark {
@@ -55,12 +55,16 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    background-image:
+      radial-gradient(circle at 12% 8%, hsl(151 76% 90% / 0.45), transparent 32rem),
+      radial-gradient(circle at 88% 0%, hsl(29 97% 73% / 0.28), transparent 28rem),
+      linear-gradient(180deg, hsl(var(--background)), hsl(35 100% 98%));
   }
 }
 
 @layer components {
   .glass {
-    @apply border border-white/40 bg-white/70 shadow-soft backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.06];
+    @apply border border-white/60 bg-white/80 shadow-soft backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.06];
   }
 
   .grid-bg {
@@ -68,6 +72,20 @@
       linear-gradient(to right, hsl(var(--border) / 0.35) 1px, transparent 1px),
       linear-gradient(to bottom, hsl(var(--border) / 0.35) 1px, transparent 1px);
     background-size: 42px 42px;
+  }
+
+  .surface-panel {
+    @apply border bg-card/90 shadow-soft backdrop-blur-xl;
+  }
+
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .soft-gradient {
+    background:
+      linear-gradient(135deg, hsl(151 76% 90% / 0.78), hsl(29 97% 73% / 0.30)),
+      hsl(var(--card));
   }
 }
 

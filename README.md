@@ -1,187 +1,150 @@
 # Horaria
 
-Horaria es una plataforma web para generar y gestionar horarios escolares: docentes, cursos, materias, aulas, sedes, restricciones, importaciones y bloques especiales como proyectos, electivas y optativas.
+Horaria es una plataforma web para que el equipo coordinador arme y mantenga los horarios escolares: docentes, cursos, materias, bloques horarios, disponibilidad y generación automática.
+
+La base de datos es **SQLite** (un único archivo en `data/horaria.db`). No requiere Prisma, PostgreSQL ni Docker para desarrollo local.
 
 ## Requisitos
 
 - Node.js 20 o superior.
 - npm.
-- Docker Desktop si queres levantar PostgreSQL local con `docker compose`.
 
-## Instalacion en Windows PowerShell
+## Cómo iniciar en localhost
+
+1. Instalar dependencias
 
 ```powershell
 npm install
-Copy-Item .env.example .env
-npx prisma generate
 ```
 
-## Variables de entorno
-
-El archivo `.env.example` incluye una configuracion local base:
-
-```env
-DATABASE_URL="postgresql://horaria:horaria@localhost:5432/horaria?schema=public"
-JWT_SECRET="replace-with-a-long-random-secret"
-OPTIMIZER_URL="http://localhost:8000"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-HORARIA_DEMO_MODE="true"
-GOOGLE_CLIENT_ID=""
-GOOGLE_CLIENT_SECRET=""
-GOOGLE_REDIRECT_URI="http://localhost:3000/api/auth/google/callback"
-```
-
-`HORARIA_DEMO_MODE="true"` permite entrar aunque PostgreSQL no este levantado. Para exigir base real, cambialo a `"false"`.
-
-## Preparar Prisma y la base
-
-Con PostgreSQL en Docker:
+2. Crear la base SQLite
 
 ```powershell
-docker compose up -d postgres
-npx prisma generate
-npx prisma migrate dev
-npm run prisma:seed
+npm run db:init
 ```
 
-Tambien podes usar:
+Crea el archivo `data/horaria.db` y aplica el esquema inicial.
+
+3. Ejecutar migraciones (idempotente)
 
 ```powershell
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
+npm run db:migrate
 ```
 
-El seed crea sedes Northfield Nordelta y Northfield Puertos, usuarios demo, docentes, cursos, aulas, materias, solicitudes, importaciones, condiciones, conflictos y bloques especiales.
+Vuelve a aplicar `db/schema.sql` y cualquier migración numerada en `db/migrations/`.
 
-## Correr el proyecto
+4. Cargar datos iniciales limpios
+
+```powershell
+npm run db:seed:clean
+```
+
+Crea un usuario superadmin (`admin@horaria.local` / `horaria-admin`), una sede mínima y dos códigos de invitación.
+
+Para datos demo (dos sedes ficticias + catálogo de materias):
+
+```powershell
+npm run db:seed:demo
+```
+
+5. Iniciar la app
 
 ```powershell
 npm run dev
 ```
 
-Abrir:
+Abrir <http://localhost:3000>.
 
-```text
-http://localhost:3000
+## Archivo de base de datos
+
+- Ubicación: `data/horaria.db`
+- Formato: SQLite estándar.
+- Podés abrirlo con [DB Browser for SQLite](https://sqlitebrowser.org/) o SQLiteStudio para hacer consultas y analytics.
+
+Para hacer un backup manual:
+
+```powershell
+npm run db:backup
 ```
 
-## Como entrar
+Copia el archivo actual a `data/backups/horaria-<timestamp>.db`.
 
-Usuarios demo:
-
-```text
-SUPERADMIN
-Email: admin@horaria.demo
-Password: horaria-demo
-
-CAMPUS_ADMIN Nordelta
-Email: vanina@northfield.demo
-Password: horaria-demo
-
-SCHEDULER Puertos
-Email: mariana@northfield.demo
-Password: horaria-demo
-
-VIEWER Nordelta
-Email: viewer.nordelta@horaria.demo
-Password: horaria-demo
-
-CAMPUS_ADMIN multisede
-Email: coordinacion@horaria.demo
-Password: horaria-demo
-```
-
-Tambien podes tocar `Ver demo` en la home. Ese boton crea una sesion demo y abre `/dashboard`.
-
-Los usuarios que no son `SUPERADMIN` solo ven sus sedes asignadas. Por ejemplo, `vanina@northfield.demo` no ve ni puede consultar datos de Puertos, y `mariana@northfield.demo` no ve ni puede consultar datos de Nordelta.
+**Importante**: los datos no se regeneran automáticamente. El seed sólo corre cuando se ejecuta manualmente.
 
 ## Registro
 
-La pantalla `/register` crea una cuenta en estado `PENDING_APPROVAL`. Si la base esta disponible, la solicitud queda guardada en Prisma para revision del superadmin. Si la base no esta disponible y `HORARIA_DEMO_MODE` esta activo, la app devuelve una respuesta demo para no bloquear el flujo.
+El registro funciona con **códigos de invitación**. La pantalla `/register` pide:
 
-## Google login
+- Nombre completo
+- Email
+- Contraseña
+- Código de invitación
+- Mensaje opcional
 
-El boton esta preparado, pero queda deshabilitado visualmente hasta configurar credenciales:
+El código define automáticamente la sede y los permisos. Nunca se muestra una lista de sedes a usuarios sin autenticar.
 
-```env
-GOOGLE_CLIENT_ID=""
-GOOGLE_CLIENT_SECRET=""
-GOOGLE_REDIRECT_URI="http://localhost:3000/api/auth/google/callback"
+Códigos demo (sólo en desarrollo o luego de `db:seed:clean` / `db:seed:demo`):
+
 ```
-
-## Si aparece el error de Prisma
-
-Error:
-
-```text
-@prisma/client did not initialize yet. Please run prisma generate
+HORARIA-SUPERADMIN-2026     → Superadmin global
+MAIN-COORDINADOR-2026       → Coordinador Sede Principal (seed:clean)
+NORDELTA-HORARIOS-2026      → Coordinador Northfield Nordelta (seed:demo)
+PUERTOS-HORARIOS-2026       → Coordinador Northfield Puertos (seed:demo)
 ```
-
-Solucion en PowerShell:
-
-```powershell
-npx prisma generate
-npm run dev
-```
-
-Si sigue fallando:
-
-```powershell
-Remove-Item -Recurse -Force node_modules
-Remove-Item -Force package-lock.json
-npm install
-npx prisma generate
-npm run dev
-```
-
-El proyecto tambien ejecuta `prisma generate` en `postinstall` y antes de `next build`.
-
-En Windows puede aparecer un `EPERM` al ejecutar `npm run build` si `npm run dev` esta abierto y mantiene bloqueado el archivo `query_engine-windows.dll.node`. Cerrá el servidor dev o liberá el puerto antes de volver a compilar:
-
-```powershell
-$owners = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -ne 0 } | Select-Object -ExpandProperty OwningProcess -Unique
-foreach ($owner in $owners) { Stop-Process -Id $owner -Force }
-npm run build
-```
-
-## Comandos utiles
-
-```powershell
-npm install
-npx prisma generate
-npx prisma migrate dev
-npm run prisma:seed
-npm run dev
-npm run build
-npm run typecheck
-```
-
-## Rutas principales
-
-- `/`: home publica.
-- `/login`: ingreso con email y contrasena.
-- `/register`: registro de cuenta pendiente.
-- `/dashboard`: panel interno.
-- `/teachers`, `/subjects`, `/courses`, `/classrooms`: gestion base.
-- `/dashboard/imports`: centro de importacion CSV.
-- `/projects`: proyectos, electivas y optativas.
-- `/scheduler`: generacion y calendario.
-- `/superadmin`: administracion general.
-- `/superadmin/requests`: aprobacion o rechazo de registros.
 
 ## Roles
 
-- `SUPERADMIN`: ve todas las sedes, usuarios, solicitudes y configuracion.
-- `CAMPUS_ADMIN`: administra sedes asignadas.
-- `SCHEDULER`: carga datos, genera horarios y revisa conflictos.
-- `VIEWER`: consulta horarios y exporta.
+- **SUPERADMIN**: ve todas las sedes, crea sedes y administra los códigos de invitación.
+- **COORDINADOR_HORARIOS**: usuario principal de la sede. Crea docentes, cursos, materias, configura disponibilidad y genera el horario.
+
+Otros roles legados (CAMPUS_ADMIN, SCHEDULER, VIEWER) siguen aceptándose en sesiones existentes pero no se ofrecen en el registro.
+
+## Rutas principales
+
+- `/`: home.
+- `/login`: ingreso con email y contraseña.
+- `/register`: registro con código de invitación.
+- `/planner`: planificador (calendario, generación y export). **Workspace principal.**
+- `/teachers`, `/subjects`, `/courses`: ABM con modales full-screen.
+- `/superadmin/campuses`: ABM de sedes (sólo superadmin).
+- `/superadmin/invitation-codes`: gestión de códigos de invitación.
+
+## Exportar
+
+El planificador ofrece:
+
+- **Exportar Excel**: CSV listo para abrir en Excel/LibreOffice.
+- **Exportar PDF**: redirige a `/planner/print`, una vista en formato calendario, lista para `Imprimir → Guardar como PDF` desde el navegador.
+- **Imprimir**: imprime la vista actual.
+
+Todos respetan el filtro activo (todo / por curso / por docente / por materia).
+
+## Comandos útiles
+
+```powershell
+npm install
+npm run db:init
+npm run db:migrate
+npm run db:seed:clean
+npm run db:seed:demo
+npm run db:backup
+npm run dev
+npm run build
+npm run lint
+npm run typecheck
+```
+
+## Notas
+
+- No hay dependencia de PostgreSQL, Docker ni Prisma.
+- Toda la persistencia pasa por `better-sqlite3`. Acceso vía `src/lib/db.ts` (singleton) y las repositorías en `src/server/repositories/`.
+- El esquema canónico vive en `db/schema.sql` y es idempotente. Las migraciones futuras se agregan como `db/migrations/NNN_descripcion.sql` y se aplican una vez (`db:migrate` registra cada una en `_schema_migrations`).
+- Docker queda **opcional**, sólo para despliegues VPS si se quiere empaquetar la app.
 
 ## Estado actual
 
-- Login con email y contrasena funcional.
-- Modo demo funcional sin base disponible.
-- Registro queda pendiente.
-- Selector ES/EN activo en home, login, register y shell interno.
-- Google OAuth preparado para credenciales reales.
-- CSV import funcionando como MVP; XLSX queda preparado para una etapa posterior.
+- Persistencia real en SQLite.
+- Registro con código de invitación.
+- ABM completo en docentes, cursos, materias y sedes.
+- Generador de horario greedy que respeta materias compatibles, años/cursos elegibles, disponibilidad y carga contractual.
+- Export a Excel/CSV y a PDF vía vista de impresión coloreada.

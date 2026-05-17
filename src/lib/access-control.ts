@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser, type SessionUser } from "@/lib/auth";
-import { campuses } from "@/lib/demo-data";
+import { getCampusesForUser } from "@/server/repositories/campuses";
 
 export class HttpError extends Error {
   status: number;
@@ -29,11 +29,8 @@ export function requireRole(user: SessionUser, roles: SessionUser["role"][]) {
   }
 }
 
-export function getScopedCampusIds(user: SessionUser) {
-  if (user.role === "SUPERADMIN") {
-    return campuses.map((campus) => campus.id);
-  }
-  return user.campusIds;
+export function getScopedCampusIds(user: SessionUser): string[] {
+  return getCampusesForUser({ id: user.id, role: user.role }).map((c) => c.id);
 }
 
 export function getDefaultCampusId(user: SessionUser) {
@@ -45,29 +42,23 @@ export function getDefaultCampusId(user: SessionUser) {
 }
 
 export function requireCampusAccess(user: SessionUser, campusId: string) {
-  if (user.role === "SUPERADMIN") {
-    return;
-  }
-  if (!user.campusIds.includes(campusId)) {
+  if (user.role === "SUPERADMIN") return;
+  const scoped = getScopedCampusIds(user);
+  if (!scoped.includes(campusId)) {
     throw new HttpError(403, "Forbidden");
   }
 }
 
 export function resolveCampusScope(user: SessionUser, requestedCampusId?: string | null) {
-  const scopedCampusIds = getScopedCampusIds(user);
   if (requestedCampusId) {
     requireCampusAccess(user, requestedCampusId);
     return [requestedCampusId];
   }
-  if (user.role === "SUPERADMIN") {
-    return scopedCampusIds;
-  }
-  return scopedCampusIds;
+  return getScopedCampusIds(user);
 }
 
 export function scopedCampuses(user: SessionUser) {
-  const scopedCampusIds = new Set(getScopedCampusIds(user));
-  return campuses.filter((campus) => scopedCampusIds.has(campus.id));
+  return getCampusesForUser({ id: user.id, role: user.role });
 }
 
 export function jsonError(error: unknown) {

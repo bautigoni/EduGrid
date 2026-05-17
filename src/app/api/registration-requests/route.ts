@@ -1,23 +1,15 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { registrationRequests } from "@/lib/demo-data";
-import { getScopedCampusIds, jsonError, requireAuth } from "@/lib/access-control";
+import { jsonError, requireAuth, requireRole } from "@/lib/access-control";
 
+// Registration now flows through invitation codes. Pending requests only exist
+// when an invitation code is flagged with requires_approval = 1 (not yet
+// surfaced here). Returning an empty list keeps the existing UI working.
 export async function GET() {
   try {
     const user = await requireAuth();
-    const scopedCampusIds = getScopedCampusIds(user);
-    const requests = await prisma.registrationRequest.findMany({
-      where: user.role === "SUPERADMIN" ? undefined : { campusId: { in: scopedCampusIds } },
-      include: { campus: true },
-      orderBy: { createdAt: "desc" }
-    });
-    return NextResponse.json(requests);
+    requireRole(user, ["SUPERADMIN"]);
+    return NextResponse.json([]);
   } catch (error) {
-    if (error instanceof Error && "status" in error) return jsonError(error);
-    const user = await requireAuth().catch(() => null);
-    if (!user) return jsonError(error);
-    const scopedCampusIds = getScopedCampusIds(user);
-    return NextResponse.json(user.role === "SUPERADMIN" ? registrationRequests : registrationRequests.filter((request) => scopedCampusIds.includes(request.campusId)));
+    return jsonError(error);
   }
 }

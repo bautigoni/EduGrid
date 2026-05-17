@@ -1,45 +1,43 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { teachers } from "@/lib/demo-data";
-import { jsonError, requireAuth, requireCampusAccess, requireRole, resolveCampusScope } from "@/lib/access-control";
+import { jsonError, requireAuth, requireCampusAccess, requireRole } from "@/lib/access-control";
+import { createTeacher, getTeachersByCampus } from "@/server/repositories/teachers";
 
 const teacherSchema = z.object({
-  campusId: z.string().default("campus-nordelta"),
-  fullName: z.string().min(2),
-  email: z.string().email().optional(),
-  contractualHours: z.number().int().min(1).max(40),
-  allowInstitutionalHours: z.boolean().optional().default(true),
-  preferences: z.string().optional()
+  campusId: z.string().min(1),
+  full_name: z.string().min(2),
+  email: z.string().email().optional().or(z.literal("")),
+  contractual_weekly_minutes: z.number().int().min(0).max(60 * 60).default(0),
+  allow_institutional_hours: z.boolean().optional(),
+  notes: z.string().optional()
 });
 
 export async function GET(request: Request) {
   try {
     const user = await requireAuth();
-    const campusId = new URL(request.url).searchParams.get("campusId");
-    const campusIds = resolveCampusScope(user, campusId);
-    const data = await prisma.teacher.findMany({
-      where: { campusId: { in: campusIds } },
-      include: { subjects: { include: { subject: true } }, blockedSlots: true },
-      orderBy: { fullName: "asc" }
-    });
-    return NextResponse.json(data);
+    const url = new URL(request.url);
+    const campusId = url.searchParams.get("campusId");
+    if (!campusId) return NextResponse.json([], { status: 200 });
+    requireCampusAccess(user, campusId);
+    return NextResponse.json(getTeachersByCampus(campusId));
   } catch (error) {
-    if (error instanceof Error && "status" in error) return jsonError(error);
-    const user = await requireAuth().catch(() => null);
-    if (!user) return jsonError(error);
-    const campusIds = resolveCampusScope(user, new URL(request.url).searchParams.get("campusId"));
-    return NextResponse.json(teachers.filter((teacher) => campusIds.includes(teacher.campusId)));
+    return jsonError(error);
   }
 }
 
 export async function POST(request: Request) {
   try {
     const user = await requireAuth();
-    requireRole(user, ["SUPERADMIN", "CAMPUS_ADMIN", "SCHEDULER"]);
+    requireRole(user, ["SUPERADMIN", "CAMPUS_ADMIN", "SCHEDULER", "COORDINADOR_HORARIOS"]);
     const payload = teacherSchema.parse(await request.json());
     requireCampusAccess(user, payload.campusId);
-    const teacher = await prisma.teacher.create({ data: payload });
+    const teacher = createTeacher(payload.campusId, {
+      full_name: payload.full_name,
+      email: payload.email || undefined,
+      contractual_weekly_minutes: payload.contractual_weekly_minutes,
+      allow_institutional_hours: payload.allow_institutional_hours,
+      notes: payload.notes
+    });
     return NextResponse.json(teacher, { status: 201 });
   } catch (error) {
     return jsonError(error);

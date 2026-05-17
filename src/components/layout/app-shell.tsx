@@ -40,13 +40,13 @@ const mainNav = [
   { href: "/subjects", labelKey: "subjects", icon: BookOpen },
   { href: "/projects", labelKey: "projects", icon: Workflow },
   { href: "/dashboard/imports", labelKey: "imports", icon: Upload },
-  { href: "/constraints", labelKey: "constraints", icon: ShieldCheck },
   { href: "/analytics", labelKey: "analytics", icon: BarChart3 }
 ] as const;
 
 const adminNav = [
-  { href: "/superadmin", labelKey: "superadmin", icon: ShieldCheck },
-  { href: "/superadmin/invitation-codes", labelKey: "invitationCodes", icon: KeyRound }
+  { href: "/superadmin/campuses", labelKey: "campuses", icon: Home },
+  { href: "/superadmin/invitation-codes", labelKey: "invitationCodes", icon: KeyRound },
+  { href: "/settings/test-tools", labelKey: "testTools", icon: ShieldCheck }
 ] as const;
 
 type UserPayload = {
@@ -74,14 +74,35 @@ function NavLink({
       title={collapsed ? label : undefined}
       onClick={onClick}
       className={cn(
-        "flex min-h-11 items-center rounded-xl text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground",
+        "group flex min-h-11 items-center rounded-xl text-sm font-semibold text-muted-foreground transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:bg-white/70 hover:text-foreground",
         collapsed ? "justify-center px-2" : "gap-3 px-3",
-        active && "bg-secondary text-foreground"
+        active && "bg-white text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.08)] ring-1 ring-emerald-100"
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" />
+      <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition", active ? "bg-secondary text-emerald-800" : "group-hover:bg-secondary/70")}>
+        <Icon className="h-4 w-4" />
+      </span>
       {!collapsed && <span className="truncate">{label}</span>}
     </Link>
+  );
+}
+
+function NavSection({
+  title,
+  children,
+  collapsed
+}: {
+  title: string;
+  children: React.ReactNode;
+  collapsed: boolean;
+}) {
+  return (
+    <section className="space-y-1">
+      <div className={cn("px-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground/80", collapsed && "sr-only")}>
+        {title}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -108,12 +129,12 @@ function SidebarContent({
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 p-4">
         <div className="flex items-center justify-between gap-2">
-          <Link href="/" className={cn("flex min-w-0 items-center rounded-2xl py-2", collapsed ? "justify-center" : "gap-3 px-2")}>
-            <Image src="/logo-mark.png" alt="Horaria" width={42} height={42} className="h-10 w-10 shrink-0 rounded-xl object-contain" priority />
+          <Link href="/" className={cn("flex min-w-0 items-center rounded-2xl py-2 focus-ring", collapsed ? "justify-center" : "gap-3 px-2")}>
+            <Image src="/logo-mark.png" alt="Horaria" width={42} height={42} className="h-10 w-10 shrink-0 rounded-xl object-contain drop-shadow-sm" priority />
             {!collapsed && (
               <div className="min-w-0">
-                <div className="truncate text-xl font-bold">Horaria</div>
-                <div className="truncate text-xs text-muted-foreground">{t("schoolSchedulingAi")}</div>
+                <div className="truncate text-xl font-black tracking-tight">Horaria</div>
+                <div className="truncate text-xs font-medium text-muted-foreground">{t("schoolSchedulingAi")}</div>
               </div>
             )}
           </Link>
@@ -122,54 +143,42 @@ function SidebarContent({
           </Button>
         </div>
 
-        <div className={cn("mt-4 grid gap-2", collapsed ? "grid-cols-1" : "grid-cols-[1fr_auto_auto]")}>
-          <Button size={collapsed ? "icon" : "sm"} className="h-11" title={t("generate")}>
-            <Sparkles className="h-4 w-4" />
-            {!collapsed && t("generate")}
-          </Button>
-          <Button variant="secondary" size="icon" title="Buscar">
-            <Search className="h-4 w-4" />
+        <div className={cn("mt-4 grid gap-2", collapsed ? "grid-cols-1" : "grid-cols-[1fr_auto]")}>
+          <Button asChild size={collapsed ? "icon" : "sm"} className="h-11" title={t("generate")}>
+            <Link href="/planner" onClick={onNavigate}>
+              <Sparkles className="h-4 w-4" />
+              {!collapsed && t("generate")}
+            </Link>
           </Button>
           <ThemeToggle />
         </div>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        <div className="flex flex-col gap-1">
+      <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
+        <NavSection title="Principal" collapsed={collapsed}>
           {mainNav.map((item) => (
             <NavLink key={item.href} href={item.href} label={t(item.labelKey)} icon={item.icon} collapsed={collapsed} onClick={onNavigate} />
           ))}
-        </div>
+        </NavSection>
         {isSuperadmin && (
-          <div className="mt-4 border-t pt-4">
-            <div className={cn("mb-2 px-3 text-xs font-semibold uppercase text-muted-foreground", collapsed && "sr-only")}>Admin</div>
+          <NavSection title="Administración" collapsed={collapsed}>
             {adminNav.map((item) => (
               <NavLink key={item.href} href={item.href} label={t(item.labelKey)} icon={item.icon} collapsed={collapsed} onClick={onNavigate} />
             ))}
-          </div>
+          </NavSection>
         )}
       </nav>
 
-      <footer className="shrink-0 border-t p-4">
+      <footer className="shrink-0 border-t border-emerald-100/80 p-4">
         <div className="flex flex-col gap-1">
           <NavLink href="/settings" label={t("settings")} icon={Settings} collapsed={collapsed} onClick={onNavigate} />
-          <Button variant="ghost" className={cn("min-h-11", collapsed ? "justify-center px-2" : "justify-start px-3")} onClick={logout} title={t("logout")}>
-            <LogOut className="h-4 w-4" />
+          <Button variant="ghost" className={cn("min-h-11 text-muted-foreground hover:text-foreground", collapsed ? "justify-center px-2" : "justify-start px-3")} onClick={logout} title={t("logout")}>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/60">
+              <LogOut className="h-4 w-4" />
+            </span>
             {!collapsed && <span className="truncate">{t("logout")}</span>}
           </Button>
         </div>
-        {!collapsed && (
-          <div className="mt-3 rounded-2xl border bg-background/70 p-4">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-              <ShieldCheck className="h-4 w-4 text-primary" />
-              {t("optimizationReady")}
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-secondary">
-              <div className="h-full w-[78%] rounded-full bg-[linear-gradient(90deg,#FDBA74,#86EFAC)]" />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">{t("demoBalanced")}</p>
-          </div>
-        )}
       </footer>
     </div>
   );
@@ -188,18 +197,18 @@ export function AppShell({ children, title, subtitle }: { children: React.ReactN
       .catch(() => setUser(null));
   }, []);
 
-  const sidebarWidth = useMemo(() => (collapsed ? "md:pl-20" : "md:pl-72"), [collapsed]);
+  const sidebarWidth = useMemo(() => (collapsed ? "md:pl-20" : "md:pl-[17rem]"), [collapsed]);
 
   return (
     <div className="min-h-screen bg-background">
-      <aside className={cn("fixed inset-y-0 left-0 z-30 hidden border-r bg-card/88 backdrop-blur-xl transition-all md:block", collapsed ? "w-20" : "w-72")}>
+      <aside className={cn("fixed inset-y-0 left-0 z-30 hidden border-r border-emerald-100/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(236,253,245,0.82)_55%,rgba(255,247,237,0.9))] backdrop-blur-xl transition-all md:block", collapsed ? "w-20" : "w-[17rem]")}>
         <SidebarContent collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} user={user} />
       </aside>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <button aria-label="Cerrar menu" className="absolute inset-0 bg-slate-950/40" onClick={() => setMobileOpen(false)} />
-          <aside className="relative h-full w-[min(86vw,320px)] border-r bg-card shadow-2xl">
+          <aside className="relative h-full w-[min(86vw,320px)] border-r bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(236,253,245,0.9))] shadow-2xl">
             <div className="absolute right-3 top-3 z-10">
               <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}>
                 <X className="h-4 w-4" />
@@ -211,19 +220,19 @@ export function AppShell({ children, title, subtitle }: { children: React.ReactN
       )}
 
       <main className={cn("transition-[padding] duration-300", sidebarWidth)}>
-        <header className="sticky top-0 z-20 border-b bg-background/85 backdrop-blur-xl">
-          <div className="flex min-h-20 flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-20 border-b border-emerald-100/80 bg-background/78 backdrop-blur-xl">
+          <div className="flex min-h-[76px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <Button variant="secondary" size="icon" className="md:hidden" onClick={() => setMobileOpen(true)}>
                 <Menu className="h-4 w-4" />
               </Button>
               <div className="min-w-0">
-                <h1 className="truncate text-xl font-bold sm:text-2xl">{title}</h1>
-                <p className="hidden max-w-[70ch] truncate text-sm text-muted-foreground sm:block">{subtitle}</p>
+                <h1 className="truncate text-2xl font-black tracking-tight sm:text-3xl">{title}</h1>
+                <p className="hidden max-w-[62ch] truncate text-sm font-medium text-muted-foreground sm:block">{subtitle}</p>
               </div>
             </div>
 
-            <div className="hidden min-w-[220px] items-center gap-2 rounded-2xl border bg-card px-3 py-2 text-sm text-muted-foreground xl:flex">
+            <div className="hidden min-h-11 min-w-[220px] items-center gap-2 rounded-2xl border bg-card/80 px-3 py-2 text-sm text-muted-foreground xl:flex">
               <Search className="h-4 w-4 shrink-0" />
               <span className="truncate">{t("search")}</span>
             </div>

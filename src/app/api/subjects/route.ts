@@ -1,18 +1,36 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { subjects } from "@/lib/demo-data";
-import { jsonError, requireAuth, resolveCampusScope } from "@/lib/access-control";
+import { z } from "zod";
+import { jsonError, requireAuth, requireCampusAccess, requireRole } from "@/lib/access-control";
+import { createSubject, getSubjectsByCampus } from "@/server/repositories/subjects";
+
+const schema = z.object({
+  campusId: z.string().min(1),
+  name: z.string().min(1),
+  code: z.string().optional(),
+  color: z.string().optional(),
+  notes: z.string().optional()
+});
 
 export async function GET(request: Request) {
   try {
     const user = await requireAuth();
-    const campusIds = resolveCampusScope(user, new URL(request.url).searchParams.get("campusId"));
-    return NextResponse.json(await prisma.subject.findMany({ where: { OR: [{ campusId: null }, { campusId: { in: campusIds } }] }, orderBy: { name: "asc" } }));
+    const campusId = new URL(request.url).searchParams.get("campusId");
+    if (!campusId) return NextResponse.json([]);
+    requireCampusAccess(user, campusId);
+    return NextResponse.json(getSubjectsByCampus(campusId));
   } catch (error) {
-    if (error instanceof Error && "status" in error) return jsonError(error);
-    const user = await requireAuth().catch(() => null);
-    if (!user) return jsonError(error);
-    const campusIds = resolveCampusScope(user, new URL(request.url).searchParams.get("campusId"));
-    return NextResponse.json(subjects.filter((subject) => subject.campusId === null || campusIds.includes(subject.campusId)));
+    return jsonError(error);
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const user = await requireAuth();
+    requireRole(user, ["SUPERADMIN", "CAMPUS_ADMIN", "SCHEDULER", "COORDINADOR_HORARIOS"]);
+    const data = schema.parse(await request.json());
+    requireCampusAccess(user, data.campusId);
+    return NextResponse.json(createSubject(data.campusId, data), { status: 201 });
+  } catch (error) {
+    return jsonError(error);
   }
 }

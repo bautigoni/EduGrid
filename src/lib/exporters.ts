@@ -1,67 +1,34 @@
-import { assignableBlocks, days, scheduleEntries } from "@/lib/demo-data";
+import { getLatestScheduleForCampus, type ScheduleAssignmentRow } from "@/lib/scheduler";
 
-type ExportEntry = typeof scheduleEntries[number];
+const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie"];
 
-function blockLabel(blockIndex: number) {
-  const block = assignableBlocks.find((b) => b.blockIndex === blockIndex);
-  return block?.label ?? "";
+export type ExportFilter = {
+  campusId: string;
+  filterType?: "all" | "course" | "teacher" | "subject";
+  filterId?: string | null;
+};
+
+export function getFilteredAssignments({ campusId, filterType, filterId }: ExportFilter): ScheduleAssignmentRow[] {
+  const all = getLatestScheduleForCampus(campusId);
+  if (!filterType || filterType === "all" || !filterId) return all;
+  if (filterType === "course") return all.filter((row) => row.course_id === filterId);
+  if (filterType === "teacher") return all.filter((row) => row.teacher_id === filterId);
+  if (filterType === "subject") return all.filter((row) => row.subject_id === filterId);
+  return all;
 }
 
-export function buildScheduleCsv(entries: ExportEntry[] = scheduleEntries) {
+export function buildScheduleCsv(entries: ScheduleAssignmentRow[]) {
   const rows = [
-    ["Day", "Time", "Course", "Subject", "Teacher", "Classroom"],
-    ...entries.map((entry) => [
-      days[entry.day],
-      blockLabel(entry.blockIndex),
-      entry.course,
-      entry.subject,
-      entry.teacher,
-      entry.classroom
+    ["Día", "Bloque", "Inicio", "Fin", "Curso", "Materia", "Docente"],
+    ...entries.map((e) => [
+      DAYS[e.day_of_week] ?? String(e.day_of_week),
+      String(e.block_index),
+      e.start_time,
+      e.end_time,
+      e.course_name ?? "",
+      e.subject_name ?? "",
+      e.teacher_name ?? ""
     ])
   ];
-
-  return rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
-}
-
-export function buildSchedulePdf(entries: ExportEntry[] = scheduleEntries) {
-  const lines = [
-    "Horaria - Trimester 1 Schedule",
-    ...entries.map(
-      (entry) => `${days[entry.day]} ${blockLabel(entry.blockIndex)}  ${entry.course}  ${entry.subject}  ${entry.teacher}  ${entry.classroom}`
-    )
-  ];
-
-  const escaped = lines.map((line) => line.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)"));
-  const content = [
-    "BT",
-    "/F1 18 Tf",
-    "72 760 Td",
-    `(Horaria - Trimester 1 Schedule) Tj`,
-    "/F1 10 Tf",
-    ...escaped.slice(1).flatMap((line) => ["0 -18 Td", `(${line}) Tj`]),
-    "ET"
-  ].join("\n");
-
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`
-  ];
-
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  objects.forEach((object, index) => {
-    offsets.push(pdf.length);
-    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  });
-  const xref = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  offsets.slice(1).forEach((offset) => {
-    pdf += `${offset.toString().padStart(10, "0")} 00000 n \n`;
-  });
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-
-  return pdf;
+  return rows.map((r) => r.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
 }

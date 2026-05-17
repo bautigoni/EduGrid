@@ -48,34 +48,58 @@ export function InvitationCodesClient({ initialCodes, campuses }: { initialCodes
     navigator.clipboard?.writeText(value).catch(() => null);
   }
 
-  function createCode() {
+  async function createCode() {
     if (!draft.label.trim()) return;
     const code = (draft.code.trim() || randomCode()).toUpperCase();
-    setCodes((current) => [
-      {
-        id: `local-${Date.now()}`,
+    const res = await fetch("/api/invitation-codes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
         code,
-        campusId: draft.role === "SUPERADMIN" ? null : draft.campusId,
+        campus_id: draft.role === "SUPERADMIN" ? null : draft.campusId,
         role: draft.role,
         label: draft.label.trim(),
-        isActive: true,
-        expiresAt: draft.expiresAt || null,
-        maxUses: draft.maxUses ? Number(draft.maxUses) : null,
-        usedCount: 0,
-        requiresApproval: draft.requiresApproval
+        expires_at: draft.expiresAt || null,
+        max_uses: draft.maxUses ? Number(draft.maxUses) : null,
+        requires_approval: draft.requiresApproval
+      })
+    });
+    if (!res.ok) return;
+    const row = await res.json();
+    setCodes((cur) => [
+      {
+        id: row.id,
+        code: row.code,
+        campusId: row.campus_id,
+        role: row.role,
+        label: row.label ?? "",
+        isActive: row.is_active === 1,
+        expiresAt: row.expires_at,
+        maxUses: row.max_uses,
+        usedCount: row.used_count,
+        requiresApproval: row.requires_approval === 1
       },
-      ...current
+      ...cur
     ]);
     setCreating(false);
     setDraft({ code: "", campusId: campuses[0]?.id ?? "", role: "COORDINADOR_HORARIOS", label: "", expiresAt: "", maxUses: "", requiresApproval: false });
   }
 
-  function toggleActive(id: string) {
-    setCodes((current) => current.map((entry) => (entry.id === id ? { ...entry, isActive: !entry.isActive } : entry)));
+  async function toggleActive(id: string) {
+    const entry = codes.find((c) => c.id === id);
+    if (!entry) return;
+    const res = await fetch(`/api/invitation-codes/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ is_active: !entry.isActive })
+    });
+    if (res.ok) setCodes((cur) => cur.map((c) => (c.id === id ? { ...c, isActive: !c.isActive } : c)));
   }
 
-  function removeCode(id: string) {
-    setCodes((current) => current.filter((entry) => entry.id !== id));
+  async function removeCode(id: string) {
+    if (!confirm("¿Eliminar código?")) return;
+    const res = await fetch(`/api/invitation-codes/${id}`, { method: "DELETE" });
+    if (res.ok) setCodes((cur) => cur.filter((c) => c.id !== id));
   }
 
   return (

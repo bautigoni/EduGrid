@@ -5,14 +5,16 @@
   "description": "AI-powered school timetable scheduling platform.",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "postinstall": "prisma generate",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts",
+    "db:init": "tsx scripts/db-init.ts",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:seed:clean": "tsx scripts/seed-clean.ts",
+    "db:seed:demo": "tsx scripts/seed-demo.ts",
+    "db:backup": "tsx scripts/db-backup.ts",
+    "verify:scheduler": "tsx scripts/verify-scheduler-benchmark.ts",
     "optimizer:dev": "python optimizer/main.py"
   },
   "dependencies": {
@@ -20,9 +22,9 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@hookform/resolvers": "^5.0.1",
-    "@prisma/client": "^6.7.0",
     "@radix-ui/react-slot": "^1.2.2",
     "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^11.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.10.5",
@@ -35,10 +37,12 @@
     "react-hook-form": "^7.56.2",
     "recharts": "^2.15.3",
     "tailwind-merge": "^3.2.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.15.17",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
@@ -46,7 +50,6 @@
     "eslint": "^9.26.0",
     "eslint-config-next": "^15.5.18",
     "postcss": "^8.5.10",
-    "prisma": "^6.7.0",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"

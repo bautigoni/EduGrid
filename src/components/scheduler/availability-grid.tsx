@@ -48,7 +48,12 @@ export function AvailabilityGrid({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border">
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2 text-xs">
+        <span className="inline-flex min-h-8 items-center gap-2 rounded-full border bg-emerald-100 px-3 font-semibold text-emerald-900"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Disponible</span>
+        <span className="inline-flex min-h-8 items-center gap-2 rounded-full border bg-card px-3 font-semibold text-muted-foreground"><span className="h-2 w-2 rounded-full bg-slate-300" /> No disponible</span>
+      </div>
+    <div className="overflow-x-auto rounded-2xl border bg-card">
       <div className="min-w-[640px]">
       <div className="grid grid-cols-[120px_repeat(5,1fr)] bg-muted/60 text-xs font-semibold text-muted-foreground">
         <div className="p-2">Bloque</div>
@@ -89,16 +94,16 @@ export function AvailabilityGrid({
                   type="button"
                   disabled={readOnly}
                   className={cn(
-                    "min-h-12 border-l text-xs transition hover:bg-primary/10",
+                    "min-h-14 border-l text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     isUnavailable
-                      ? "bg-rose-500/12 text-rose-700 dark:text-rose-300"
-                      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+                      ? "bg-card text-muted-foreground hover:bg-muted"
+                      : "bg-emerald-100 text-emerald-900 hover:bg-emerald-200/70",
                     readOnly && "cursor-default opacity-80"
                   )}
                   onClick={() => toggle(day, blockIndex)}
                   aria-label={`${entity === "teacher" ? "Docente" : "Curso"} ${isUnavailable ? "no disponible" : "disponible"} ${days[day]} ${block.label}`}
                 >
-                  {isUnavailable ? "No disponible" : "Disponible"}
+                  {isUnavailable ? "No" : "Disponible"}
                 </button>
               );
             })}
@@ -106,6 +111,7 @@ export function AvailabilityGrid({
         );
       })}
       </div>
+    </div>
     </div>
   );
 }

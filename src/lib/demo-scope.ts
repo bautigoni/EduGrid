@@ -1,60 +1,56 @@
 import { getSessionUser, type SessionUser } from "@/lib/auth";
-import {
-  classrooms,
-  conflicts,
-  courseSubjects,
-  courses,
-  customConditions,
-  defaultCampusId,
-  importBatches,
-  insights,
-  programBlocks,
-  scheduleEntries,
-  subjects,
-  teachers
-} from "@/lib/demo-data";
-import { getDefaultCampusId, getScopedCampusIds, scopedCampuses } from "@/lib/access-control";
+import { getCampusesForUser } from "@/server/repositories/campuses";
+import { getTeachersByCampus } from "@/server/repositories/teachers";
+import { getCoursesByCampus } from "@/server/repositories/courses";
+import { getSubjectsByCampus } from "@/server/repositories/subjects";
+import { getTimeBlocksForCampus, getAssignableBlocksForCampus } from "@/server/repositories/timeBlocks";
 
+/**
+ * Scoped server-side context for the current request.
+ * - Superadmins get every active campus.
+ * - Coordinators only see campuses they are assigned to.
+ * - The "selected campus" is honoured via a cookie when present.
+ */
 export async function getScopedDemoContext() {
-  const user =
-    (await getSessionUser()) ??
-    ({
-      id: "anonymous-demo",
-      email: "demo@horaria.local",
-      name: "Demo",
-      role: "SUPERADMIN",
-      status: "ACTIVE",
-      selectedCampusId: defaultCampusId,
-      campusIds: []
-    } satisfies SessionUser);
-  const scopedCampusIds = getScopedCampusIds(user);
-  const selectedCampusId = getDefaultCampusId(user) ?? defaultCampusId;
-  const scopedCampusSet = new Set(scopedCampusIds);
+  const session: SessionUser | null = await getSessionUser();
+  const user = session ?? {
+    id: "anonymous",
+    email: "anonymous@horaria.local",
+    name: "Invitado",
+    role: "COORDINADOR_HORARIOS" as const,
+    status: "ACTIVE" as const,
+    selectedCampusId: null,
+    campusIds: []
+  };
+
+  const campuses = getCampusesForUser({ id: user.id, role: user.role });
+  const selectedCampusId =
+    (user.selectedCampusId && campuses.find((c) => c.id === user.selectedCampusId)?.id) || campuses[0]?.id || "";
+
+  const teachers = selectedCampusId ? getTeachersByCampus(selectedCampusId) : [];
+  const courses = selectedCampusId ? getCoursesByCampus(selectedCampusId) : [];
+  const subjects = selectedCampusId ? getSubjectsByCampus(selectedCampusId) : [];
+  const timeBlocks = selectedCampusId ? getTimeBlocksForCampus(selectedCampusId) : [];
+  const assignableBlocks = selectedCampusId ? getAssignableBlocksForCampus(selectedCampusId) : [];
 
   return {
     user,
     selectedCampusId,
-    campusIds: scopedCampusIds,
-    campuses: scopedCampuses(user),
+    campusIds: campuses.map((c) => c.id),
+    campuses,
     isSuperadmin: user.role === "SUPERADMIN",
-    teachers: teachers.filter((teacher) => scopedCampusSet.has(teacher.campusId)),
-    courses: courses.filter((course) => scopedCampusSet.has(course.campusId)),
-    subjects: subjects.filter((subject) => subject.campusId === null || scopedCampusSet.has(subject.campusId)),
-    courseSubjects: courseSubjects.filter((item) => scopedCampusSet.has(item.campusId)),
-    classrooms: classrooms.filter((room) => scopedCampusSet.has(room.campusId)),
-    programBlocks: programBlocks.filter((block) => scopedCampusSet.has(block.campusId)),
-    importBatches: importBatches.filter((batch) => scopedCampusSet.has(batch.campusId)),
-    scheduleEntries: scheduleEntries.filter((entry) => scopedCampusSet.has(entry.campusId)),
-    customConditions: customConditions.filter((condition) => scopedCampusSet.has(condition.campusId)),
-    conflicts: conflicts.filter((conflict) => scopedCampusSet.has(conflict.campusId)),
-    insights:
-      user.role === "SUPERADMIN"
-        ? insights
-        : insights.filter((insight) => {
-            if (selectedCampusId === "campus-nordelta") {
-              return !insight.includes("Puertos") && !insight.includes("sede Puertos");
-            }
-            return !insight.includes("Nordelta");
-          })
+    teachers,
+    courses,
+    subjects,
+    courseSubjects: [] as Array<{ campusId: string; course: string; subject: string; weeklyBlocksRequired: number; distribution: string }>,
+    classrooms: [] as Array<{ id: string; campusId: string; name: string; type: string; capacity: number; restrictions: string | null }>,
+    programBlocks: [] as Array<unknown>,
+    importBatches: [] as Array<{ id: string; campusId: string; type: string; status: string; filename: string; rows: number; validRows: number; errors: number; createdAt: string }>,
+    scheduleEntries: [] as Array<unknown>,
+    customConditions: [] as Array<unknown>,
+    conflicts: [] as Array<unknown>,
+    insights: [] as string[],
+    timeBlocks,
+    assignableBlocks
   };
 }

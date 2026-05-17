@@ -1,18 +1,22 @@
-import { buildSchedulePdf } from "@/lib/exporters";
-import { jsonError, requireAuth, resolveCampusScope } from "@/lib/access-control";
-import { scheduleEntries } from "@/lib/demo-data";
+import { NextResponse } from "next/server";
+import { getDefaultCampusId, jsonError, requireAuth, requireCampusAccess } from "@/lib/access-control";
 
+/**
+ * The "PDF" download now redirects to a print-friendly HTML page that the user
+ * can save as PDF via their browser. The page is /planner/print and renders a
+ * full coloured schedule table.
+ */
 export async function GET(request: Request) {
   try {
     const user = await requireAuth();
-    const campusIds = resolveCampusScope(user, new URL(request.url).searchParams.get("campusId"));
-    const scopedEntries = scheduleEntries.filter((entry) => campusIds.includes(entry.campusId));
-    return new Response(buildSchedulePdf(scopedEntries), {
-      headers: {
-        "content-type": "application/pdf",
-        "content-disposition": 'attachment; filename="horaria-schedule.pdf"'
-      }
-    });
+    const url = new URL(request.url);
+    const campusId = url.searchParams.get("campusId") ?? getDefaultCampusId(user);
+    if (!campusId) return new Response("No campus", { status: 400 });
+    requireCampusAccess(user, campusId);
+    const filterType = url.searchParams.get("filterType") ?? "all";
+    const filterId = url.searchParams.get("filterId") ?? "";
+    const target = new URL(`/planner/print?campusId=${encodeURIComponent(campusId)}&filterType=${encodeURIComponent(filterType)}&filterId=${encodeURIComponent(filterId)}`, request.url);
+    return NextResponse.redirect(target);
   } catch (error) {
     return jsonError(error);
   }
