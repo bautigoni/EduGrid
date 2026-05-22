@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 
-const DB_DIR = path.join(process.cwd(), "data");
-const DB_FILE = path.join(DB_DIR, "horaria.db");
+const DB_FILE = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "horaria.db");
+const DB_DIR = path.dirname(DB_FILE);
 
 type DatabaseInstance = ReturnType<typeof Database>;
 let _db: DatabaseInstance | null = null;

@@ -6,7 +6,17 @@ import { getUserByEmail } from "@/server/repositories/users";
 
 export async function GET() {
   // Sign in as the first superadmin in the database (created by seed).
-  let user = getUserByEmail("admin@horaria.demo") ?? getUserByEmail("admin@horaria.local");
+  let user;
+  try {
+    user = getUserByEmail("admin@horaria.demo") ?? getUserByEmail("admin@horaria.local");
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("no such table")) {
+      console.error("[demo] Database not initialized. Run npm run db:init and npm run db:seed:demo.");
+      return NextResponse.json({ message: "El servidor no está inicializado. Contacte al administrador." }, { status: 503 });
+    }
+    throw err;
+  }
   if (!user) {
     const row = getDb().prepare("SELECT * FROM users WHERE role = 'SUPERADMIN' ORDER BY created_at LIMIT 1").get() as
       | { id: string; full_name: string; email: string; role: string; status: string }

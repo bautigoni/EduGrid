@@ -1,0 +1,11 @@
+services:
+  horaria:
+    build: .
+    container_name: horaria
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/horaria.db

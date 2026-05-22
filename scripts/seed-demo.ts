@@ -24,13 +24,25 @@ function main() {
     seedDefaultTimeBlocksForCampus(c.id);
   }
 
-  // Superadmin user
-  const adminEmail = "admin@horaria.demo";
-  if (!db.prepare("SELECT id FROM users WHERE email = ?").get(adminEmail)) {
-    const id = newId("usr");
+  // Demo superadmin (admin@horaria.demo)
+  const demoEmail = "admin@horaria.demo";
+  if (!db.prepare("SELECT id FROM users WHERE email = ?").get(demoEmail)) {
     db.prepare(`INSERT INTO users (id, full_name, email, password_hash, role, status, created_at, updated_at)
                 VALUES (?,?,?,?,?,?,?,?)`)
-      .run(id, "Superadmin", adminEmail, bcrypt.hashSync("horaria-demo", 10), "SUPERADMIN", "ACTIVE", now, now);
+      .run(newId("usr"), "Superadmin Demo", demoEmail, bcrypt.hashSync("horaria-demo", 10), "SUPERADMIN", "ACTIVE", now, now);
+  }
+
+  // Canonical admin (admin@horaria.local / horaria-admin) — upsert so it always works
+  const localEmail = "admin@horaria.local";
+  const localHash = bcrypt.hashSync("horaria-admin", 10);
+  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(localEmail) as { id: string } | undefined;
+  if (existing) {
+    db.prepare(`UPDATE users SET password_hash=?, role='SUPERADMIN', status='ACTIVE', updated_at=? WHERE id=?`)
+      .run(localHash, now, existing.id);
+  } else {
+    db.prepare(`INSERT INTO users (id, full_name, email, password_hash, role, status, created_at, updated_at)
+                VALUES (?,?,?,?,?,?,?,?)`)
+      .run(newId("usr"), "Superadmin", localEmail, localHash, "SUPERADMIN", "ACTIVE", now, now);
   }
 
   // Subjects per campus
@@ -64,6 +76,7 @@ function main() {
   for (const c of codes) insertCode.run(newId("inv"), c.code, c.campus_id, c.role, c.label, now, now);
 
   console.log("[db:seed:demo] done");
+  console.log("  Login: admin@horaria.local / horaria-admin");
 }
 
 main();

@@ -8,7 +8,17 @@ export async function POST(request: Request) {
   const normalizedEmail = String(email ?? "").trim().toLowerCase();
   const normalizedPassword = String(password ?? "");
 
-  const user = getUserByEmail(normalizedEmail);
+  let user;
+  try {
+    user = getUserByEmail(normalizedEmail);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("no such table")) {
+      console.error("[login] Database not initialized. Run npm run db:init and npm run db:seed:demo.");
+      return NextResponse.json({ message: "El servidor no está inicializado. Contacte al administrador." }, { status: 503 });
+    }
+    throw err;
+  }
   if (!user || !user.password_hash) {
     return NextResponse.json({ message: "Credenciales inválidas." }, { status: 401 });
   }
