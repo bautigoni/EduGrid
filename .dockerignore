@@ -1,0 +1,27 @@
+# Dependencies — rebuilt inside Docker by npm install
+node_modules
+
+# Next.js build output — rebuilt inside Docker by npm run build
+.next
+
+# SQLite data — mounted as a volume at runtime, never baked into the image
+data
+
+# Git internals
+.git
+
+# Local env files
+.env
+.env.local
+.env*.local
+
+# Python optimizer (not used in production)
+optimizer/.venv
+__pycache__
+*.pyc
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Logs
+*.log
